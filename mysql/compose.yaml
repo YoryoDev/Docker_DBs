@@ -4,7 +4,7 @@ services:
     image: mysql:8.4
     container_name: mysql8
     hostname: mysql8
-    restart: unless-stopped
+    restart: no
     profiles:
       - mysql
     ports:

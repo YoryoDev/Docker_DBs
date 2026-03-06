@@ -4,7 +4,7 @@ services:
     image: postgres:18.2
     container_name: postgresql18
     hostname: postgresql18
-    restart: unless-stopped
+    restart: no
     profiles:
       - postgresql
     command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf -c listen_addresses=${BIND_ADDRESS}

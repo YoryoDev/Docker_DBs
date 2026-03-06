@@ -104,6 +104,27 @@ Cada motor tiene además sus propias credenciales — revisa el `.env.example` c
 
 Todos los comandos se ejecutan desde la **raíz del repositorio** usando perfiles para seleccionar el servicio. También puedes entrar a la carpeta de cada servicio y ejecutar `docker compose` directamente.
 
+### Política de reinicio (`restart`)
+
+Todos los servicios tienen configurado `restart: no` — el contenedor **no se inicia automáticamente** cuando arranca el host o el daemon de Docker. Así decides tú qué servicios levantar en cada momento.
+
+Si quieres que un servicio arranque automáticamente al encender la VM o el servidor, cambia esa línea en el `compose.yaml` del servicio correspondiente:
+
+```yaml
+# Solo se inicia manualmente — valor por defecto en este repo
+restart: no
+
+# Se reinicia automáticamente salvo que lo hayas detenido tú con `docker stop`
+restart: unless-stopped
+```
+
+| Valor | Comportamiento |
+|---|---|
+| `no` | No se reinicia nunca de forma automática |
+| `unless-stopped` | Se reinicia al arrancar Docker/host, excepto si fue detenido manualmente |
+| `always` | Se reinicia siempre, incluso si fue detenido manualmente |
+| `on-failure` | Solo se reinicia si el proceso termina con error |
+
 ### Levantar un servicio
 
 ```bash
