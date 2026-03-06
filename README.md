@@ -1,4 +1,4 @@
-# docker-db
+# Docker_DBs
 
 Repositorio de configuraciones Docker Compose para levantar motores de base de datos listos para desarrollo y pruebas en servidor (VM o nube). Cada motor vive en su propia carpeta con su configuración, variables de entorno y archivos de tuning independientes.
 
@@ -26,7 +26,7 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 ## Estructura del repositorio
 
 ```
-docker-db/
+Docker_DBs/
 ├── compose.yaml          ← orquestador raíz (include + profiles)
 ├── mssql_en/
 │   ├── compose.yaml
@@ -68,8 +68,8 @@ docker-db/
 ### 1. Clonar el repositorio
 
 ```bash
-git clone <url-del-repositorio> docker-db
-cd docker-db
+git clone <url-del-repositorio> Docker_DBs
+cd Docker_DBs
 ```
 
 ### 2. Crear archivos `.env` a partir de los ejemplos
