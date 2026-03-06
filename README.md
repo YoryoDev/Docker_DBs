@@ -39,18 +39,19 @@ Docker_DBs/
 │   ├── .env.example
 │   └── config/
 │       └── mssql.conf
-├── postgresql/
+├── postgresql18/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       ├── postgresql.conf
+│       └── pg_hba.conf
+├── postgresql17/
 │   ├── compose.yaml
 │   ├── .env.example
 │   └── config/
 │       ├── postgresql.conf
 │       └── pg_hba.conf
 ├── mariadb/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       └── my.cnf
-├── mysql/
 │   ├── compose.yaml
 │   ├── .env.example
 │   └── config/

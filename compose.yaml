@@ -3,8 +3,8 @@ include:
     env_file: ./mssql_en/.env
   - path: ./mssql_es/compose.yaml
     env_file: ./mssql_es/.env
-  - path: ./postgresql/compose.yaml
-    env_file: ./postgresql/.env
+  - path: ./postgresql18/compose.yaml
+    env_file: ./postgresql18/.env
   - path: ./postgresql17/compose.yaml
     env_file: ./postgresql17/.env
   - path: ./mariadb/compose.yaml
