@@ -11,7 +11,7 @@ services:
     ports:
       - "${BIND_ADDRESS}:5432:5432"
     volumes:
-      - postgresql18_data:/var/lib/postgresql/data
+      - postgresql18_data:/var/lib/postgresql
       - postgresql18_backup:/var/lib/postgresql/backup
       - postgresql18_log:/var/log/postgresql
       - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
