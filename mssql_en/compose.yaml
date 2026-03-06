@@ -1,0 +1,29 @@
+services:
+
+  mssql_en:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    container_name: sqlserver25_en
+    hostname: sqlserver25_en
+    restart: unless-stopped
+    profiles:
+      - mssql-en
+    ports:
+      - "${BIND_ADDRESS}:1433:1433"
+    volumes:
+      - sqlserver25_en_data:/var/opt/mssql/data
+      - sqlserver25_en_backup:/var/opt/mssql/backup
+      - sqlserver25_en_jobs:/var/opt/mssql/jobs
+      - sqlserver25_en_log:/var/opt/mssql/log
+      - ./config/mssql.conf:/var/opt/mssql/mssql.conf:ro
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "StandardDeveloper"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_AGENT_ENABLED: "true"
+      MSSQL_COLLATION: "Latin1_General_100_CI_AS_SC"
+
+volumes:
+  sqlserver25_en_data:
+  sqlserver25_en_backup:
+  sqlserver25_en_jobs:
+  sqlserver25_en_log:

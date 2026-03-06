@@ -1,0 +1,26 @@
+services:
+
+  mysql:
+    image: mysql:8.4
+    container_name: mysql8
+    hostname: mysql8
+    restart: unless-stopped
+    profiles:
+      - mysql
+    ports:
+      - "${BIND_ADDRESS}:3306:3306"
+    volumes:
+      - mysql8_data:/var/lib/mysql
+      - mysql8_backup:/var/lib/mysql-backup
+      - mysql8_log:/var/log/mysql
+      - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+
+volumes:
+  mysql8_data:
+  mysql8_backup:
+  mysql8_log:

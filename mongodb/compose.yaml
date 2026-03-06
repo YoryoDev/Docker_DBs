@@ -1,0 +1,26 @@
+services:
+
+  mongodb:
+    image: mongo:8.0
+    container_name: mongodb8
+    hostname: mongodb8
+    restart: unless-stopped
+    profiles:
+      - mongodb
+    ports:
+      - "${BIND_ADDRESS}:27017:27017"
+    volumes:
+      - mongodb8_data:/data/db
+      - mongodb8_backup:/data/backup
+      - mongodb8_log:/var/log/mongodb
+      - ./config/mongod.conf:/etc/mongod.conf:ro
+    command: mongod --config /etc/mongod.conf
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
+
+volumes:
+  mongodb8_data:
+  mongodb8_backup:
+  mongodb8_log:

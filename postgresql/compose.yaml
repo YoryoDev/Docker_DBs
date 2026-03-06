@@ -1,0 +1,27 @@
+services:
+
+  postgresql:
+    image: postgres:18.2
+    container_name: postgresql18
+    hostname: postgresql18
+    restart: unless-stopped
+    profiles:
+      - postgresql
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf -c listen_addresses=${BIND_ADDRESS}
+    ports:
+      - "${BIND_ADDRESS}:5432:5432"
+    volumes:
+      - postgresql18_data:/var/lib/postgresql/data
+      - postgresql18_backup:/var/lib/postgresql/backup
+      - postgresql18_log:/var/log/postgresql
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+volumes:
+  postgresql18_data:
+  postgresql18_backup:
+  postgresql18_log:

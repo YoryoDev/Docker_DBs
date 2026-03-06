@@ -1,0 +1,26 @@
+services:
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: mariadb
+    hostname: mariadb
+    restart: unless-stopped
+    profiles:
+      - mariadb
+    ports:
+      - "${BIND_ADDRESS}:3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - mariadb_backup:/var/lib/mysql-backup
+      - mariadb_log:/var/log/mysql
+      - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+
+volumes:
+  mariadb_data:
+  mariadb_backup:
+  mariadb_log:
