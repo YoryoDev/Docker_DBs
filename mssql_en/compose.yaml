@@ -5,6 +5,7 @@ services:
     container_name: sqlserver25_en
     hostname: sqlserver25_en
     restart: no
+    user: "0"
     profiles:
       - mssql-en
     ports:
