@@ -274,3 +274,69 @@ Edita el archivo correspondiente y reinicia el contenedor para aplicar los cambi
 ```bash
 docker compose --profile postgresql restart
 ```
+
+---
+
+## Nota: SQL Server y permisos de volumen
+
+SQL Server 2025 corre por defecto como el usuario `mssql` (UID `10001`), un usuario sin privilegios. Cuando Docker crea los volúmenes por primera vez, los directorios quedan con dueño `root`, lo que provoca este error al iniciar:
+
+```
+ERROR: Setup FAILED copying system data file: 5(Access is denied.)
+```
+
+### Solución aplicada
+
+En este repo los servicios `mssql_en` y `mssql_es` tienen configurado `user: "0"`, lo que fuerza al contenedor a correr como `root` y elimina el problema de permisos:
+
+```yaml
+services:
+  mssql_en:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    user: "0"    # corre como root para evitar errores de acceso en los volúmenes
+```
+
+### Mejores prácticas para este caso
+
+| Opción | Seguridad | Complejidad | Recomendado para |
+|---|---|---|---|
+| `user: "0"` (root) — **opción actual** | ⚠ Baja | Baja | Desarrollo / VM local |
+| Init container (`chown` previo) | ✅ Alta | Media | Staging / producción |
+| Volumen con `tmpfs` o permisos correctos desde el SO | ✅ Alta | Alta | Producción en nube |
+
+**Para entornos de producción o exposición pública se recomienda:**
+
+1. **No usar `user: "0"`** — correr como root dentro del contenedor amplía la superficie de ataque. Si el contenedor es comprometido, el atacante tiene acceso root al filesystem del volumen.
+
+2. **Usar un init container** que arregle los permisos antes de arrancar SQL Server:
+
+```yaml
+services:
+  mssql_en_init:
+    image: busybox:latest
+    user: "0"
+    command:
+      - sh
+      - -c
+      - chown -R 10001:10001 /var/opt/mssql/data /var/opt/mssql/backup /var/opt/mssql/jobs /var/opt/mssql/log
+    volumes:
+      - sqlserver25_en_data:/var/opt/mssql/data
+      - sqlserver25_en_backup:/var/opt/mssql/backup
+      - sqlserver25_en_jobs:/var/opt/mssql/jobs
+      - sqlserver25_en_log:/var/opt/mssql/log
+
+  mssql_en:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    # sin user: "0" — corre como mssql (UID 10001)
+    depends_on:
+      mssql_en_init:
+        condition: service_completed_successfully
+```
+
+3. **Eliminar volúmenes corruptos** antes de recrear el contenedor (si el contenedor nunca arrancó correctamente, no hay datos que perder):
+
+```bash
+docker volume rm docker-db_sqlserver25_en_data docker-db_sqlserver25_en_backup \
+                 docker-db_sqlserver25_en_jobs  docker-db_sqlserver25_en_log
+docker compose --profile mssql-en up -d
+```
