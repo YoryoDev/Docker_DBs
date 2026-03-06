@@ -1,0 +1,27 @@
+services:
+
+  postgresql17:
+    image: postgres:17.4
+    container_name: postgresql17
+    hostname: postgresql17
+    restart: no
+    profiles:
+      - postgresql17
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
+    ports:
+      - "${BIND_ADDRESS}:5433:5432"
+    volumes:
+      - postgresql17_data:/var/lib/postgresql/data
+      - postgresql17_backup:/var/lib/postgresql/backup
+      - postgresql17_log:/var/log/postgresql
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+volumes:
+  postgresql17_data:
+  postgresql17_backup:
+  postgresql17_log:

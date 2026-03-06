@@ -9,6 +9,7 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 | `mssql_en` | SQL Server 2025 (collation inglés) | `1433` | `mssql-en` |
 | `mssql_es` | SQL Server 2025 (collation español) | `1434` | `mssql-es` |
 | `postgresql` | PostgreSQL 18.2 | `5432` | `postgresql` |
+| `postgresql17` | PostgreSQL 17.4 LTS | `5433` | `postgresql17` |
 | `mariadb` | MariaDB 11.4 LTS | `3307` | `mariadb` |
 | `mysql` | MySQL 8.4 LTS | `3306` | `mysql` |
 | `mongodb` | MongoDB 8.0 | `27017` | `mongodb` |

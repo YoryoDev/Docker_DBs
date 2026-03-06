@@ -5,6 +5,8 @@ include:
     env_file: ./mssql_es/.env
   - path: ./postgresql/compose.yaml
     env_file: ./postgresql/.env
+  - path: ./postgresql17/compose.yaml
+    env_file: ./postgresql17/.env
   - path: ./mariadb/compose.yaml
     env_file: ./mariadb/.env
   - path: ./mysql/compose.yaml
