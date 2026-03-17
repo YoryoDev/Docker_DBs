@@ -6,7 +6,7 @@ services:
     hostname: postgresql18
     restart: no
     profiles:
-      - postgresql
+      - postgresql18
     command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     ports:
       - "${BIND_ADDRESS}:5432:5432"
