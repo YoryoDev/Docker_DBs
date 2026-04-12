@@ -8,7 +8,7 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 |---|---|---|---|
 | `mssql_en` | SQL Server 2025 (collation inglés) | `1433` | `mssql-en` |
 | `mssql_es` | SQL Server 2025 (collation español) | `1434` | `mssql-es` |
-| `postgresql` | PostgreSQL 18.2 | `5432` | `postgresql` |
+| `postgresql18` | PostgreSQL 18.2 | `5432` | `postgresql18` |
 | `postgresql17` | PostgreSQL 17.4 LTS | `5433` | `postgresql17` |
 | `mariadb` | MariaDB 11.4 LTS | `3307` | `mariadb` |
 | `mysql` | MySQL 8.4 LTS | `3306` | `mysql` |
@@ -80,7 +80,7 @@ Cada servicio tiene su propio `.env.example`. Copia y edita solo los que vayas a
 
 ```bash
 # Ejemplos — repite para cada servicio que necesites
-cp postgresql/.env.example postgresql/.env
+cp postgresql18/.env.example postgresql18/.env
 cp mysql/.env.example        mysql/.env
 cp mariadb/.env.example      mariadb/.env
 cp mongodb/.env.example      mongodb/.env
@@ -130,7 +130,7 @@ restart: unless-stopped
 ### Levantar un servicio
 
 ```bash
-docker compose --profile postgresql up -d
+docker compose --profile postgresql18 up -d
 docker compose --profile mysql up -d
 docker compose --profile mariadb up -d
 docker compose --profile mongodb up -d
@@ -141,14 +141,14 @@ docker compose --profile mssql-es up -d
 ### Levantar varios servicios a la vez
 
 ```bash
-docker compose --profile postgresql --profile mysql up -d
+docker compose --profile postgresql18 --profile mysql up -d
 ```
 
 ### Levantar todos los servicios
 
 ```bash
 docker compose \
-  --profile postgresql \
+  --profile postgresql18 \
   --profile mysql \
   --profile mariadb \
   --profile mongodb \
@@ -160,19 +160,19 @@ docker compose \
 ### Detener un servicio (sin eliminar datos)
 
 ```bash
-docker compose --profile postgresql stop
+docker compose --profile postgresql18 stop
 ```
 
 ### Detener y eliminar el contenedor (los volúmenes se conservan)
 
 ```bash
-docker compose --profile postgresql down
+docker compose --profile postgresql18 down
 ```
 
 ### Eliminar el contenedor **y sus volúmenes** (⚠ borra todos los datos)
 
 ```bash
-docker compose --profile postgresql down -v
+docker compose --profile postgresql18 down -v
 ```
 
 ---
@@ -182,13 +182,13 @@ docker compose --profile postgresql down -v
 ### Ver logs en tiempo real de un servicio
 
 ```bash
-docker compose --profile postgresql logs -f
+docker compose --profile postgresql18 logs -f
 ```
 
 ### Ver las últimas N líneas
 
 ```bash
-docker compose --profile postgresql logs --tail=100
+docker compose --profile postgresql18 logs --tail=100
 ```
 
 ### Ver logs de un contenedor directamente
@@ -220,10 +220,10 @@ docker compose ps
 
 ```bash
 # 1. Descargar la nueva imagen
-docker compose --profile postgresql pull
+docker compose --profile postgresql18 pull
 
 # 2. Recrear el contenedor con la nueva imagen
-docker compose --profile postgresql up -d
+docker compose --profile postgresql18 up -d
 ```
 
 > Recuerda actualizar primero el tag de la imagen en el `compose.yaml` del servicio antes de hacer pull, para tener control explícito de la versión.
@@ -274,7 +274,7 @@ Los archivos de configuración de cada motor se encuentran en `<servicio>/config
 Edita el archivo correspondiente y reinicia el contenedor para aplicar los cambios:
 
 ```bash
-docker compose --profile postgresql restart
+docker compose --profile postgresql18 restart
 ```
 
 ---
