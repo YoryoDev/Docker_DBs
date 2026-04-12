@@ -93,9 +93,11 @@ cp mssql_es/.env.example     mssql_es/.env
 Variables comunes en todos los `.env`:
 
 ```env
-# IP de la interfaz de red del servidor/VM por donde se expondrá el puerto.
+# IP de la interfaz del servidor/VM por donde se expondrá el puerto.
+# 127.0.0.1 → solo acceso local (valor por defecto, recomendado).
+# Cambia a la IP de tu servidor (p. ej. 192.168.1.10) para acceso remoto en tu red.
 # Usa 0.0.0.0 solo si necesitas exponer en todas las interfaces (no recomendado).
-BIND_ADDRESS=192.168.0.100
+BIND_ADDRESS=127.0.0.1
 ```
 
 Cada motor tiene además sus propias credenciales — revisa el `.env.example` correspondiente para ver qué variables configurar.
