@@ -1,6 +1,221 @@
 # Docker_DBs
 
-Repositorio de configuraciones Docker Compose para levantar motores de base de datos listos para desarrollo y pruebas en servidor (VM o nube). Cada motor vive en su propia carpeta con su configuración, variables de entorno y archivos de tuning independientes.
+Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desarrollo, pruebas y laboratorio en servidor, VM o nube. Cada motor es independiente, con configuración explícita, bind mounts y límites de recursos definidos.
+
+## Motores
+
+| Servicio | Imagen | Puerto host | Collation / Charset |
+|---|---|---|---|
+| `mssql2025` | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `Latin1_General_100_CI_AS_SC` |
+| `mssql2022` | `mssql/server:2022-CU23-ubuntu-22.04` | `1434` | `Latin1_General_100_CI_AS_SC` |
+| `postgresql18` | `postgres:18.2` | `5432` | — |
+| `postgresql17` | `postgres:17.4` | `5433` | — |
+| `mariadb` | `mariadb:11.4.10` | `3307` | `utf8mb4_unicode_ci` |
+| `mysql` | `mysql:8.4.8` | `3306` | `utf8mb4_unicode_ci` |
+| `mongodb` | `mongo:8.0.20` | `27017` | — |
+
+---
+
+## Requisitos
+
+- Docker Engine >= 24
+- Docker Compose >= 2.20
+- Git
+
+---
+
+## Instalación
+
+```bash
+git clone <url> Docker_DBs && cd Docker_DBs
+
+# Copia y edita solo los servicios que vayas a usar
+cp mssql2025/.env.example  mssql2025/.env
+cp mssql2022/.env.example  mssql2022/.env
+cp postgresql18/.env.example postgresql18/.env
+cp postgresql17/.env.example postgresql17/.env
+cp mariadb/.env.example    mariadb/.env
+cp mysql/.env.example      mysql/.env
+cp mongodb/.env.example    mongodb/.env
+```
+
+### Variable `BIND_ADDRESS`
+
+Controla en qué interfaz se expone cada puerto:
+
+```env
+BIND_ADDRESS=127.0.0.1       # solo acceso local (recomendado por defecto)
+BIND_ADDRESS=192.168.1.10    # acceso desde la red local
+BIND_ADDRESS=0.0.0.0         # todas las interfaces (no recomendado)
+```
+
+---
+
+## Uso de comandos
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `up` | Primera vez o tras un `down`. Crea el contenedor y lo arranca. |
+| `start` | Uso diario. Reanuda un contenedor parado con `stop`. |
+| `stop` | Uso diario. Pausa el contenedor sin eliminarlo ni tocar datos. |
+| `down` | Cuando necesites recrear el contenedor (cambio de config, nueva imagen). Elimina el contenedor pero **no los datos**. |
+| `pull` | Antes de actualizar. Descarga la nueva imagen sin afectar el contenedor activo. |
+| `logs` | Diagnóstico. Muestra los logs en tiempo real. |
+| `shell` | Acceso directo al cliente del motor dentro del contenedor. |
+
+### Con aliases (`~/.bash_aliases`)
+
+```bash
+# Primera vez
+mssql25-up
+
+# Operación diaria
+mssql25-stop
+mssql25-start
+
+# Actualizar versión
+mssql25-stop
+mssql25-pull
+mssql25-down
+mssql25-up
+
+# Estado global
+dbs-ps
+dbs-help   # cheatsheet completo
+```
+
+### Con Docker Compose directo (desde la raíz)
+
+```bash
+docker compose --profile mssql2025 up -d
+docker compose --profile mssql2025 start
+docker compose --profile mssql2025 stop
+docker compose --profile mssql2025 down
+docker compose --profile mssql2025 logs -f
+```
+
+### Levantar varios servicios a la vez
+
+```bash
+docker compose --profile mssql2025 --profile mssql2022 up -d
+```
+
+---
+
+## Conexión desde clientes externos (SSMS, DBeaver, DataGrip)
+
+| Motor | Host | Puerto | Usuario |
+|---|---|---|---|
+| SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` |
+| SQL Server 2022 | `BIND_ADDRESS` | `1434` | `sa` |
+| PostgreSQL 18 | `BIND_ADDRESS` | `5432` | `POSTGRES_USER` |
+| PostgreSQL 17 | `BIND_ADDRESS` | `5433` | `POSTGRES_USER` |
+| MySQL 8 | `BIND_ADDRESS` | `3306` | `MYSQL_USER` / `root` |
+| MariaDB 11 | `BIND_ADDRESS` | `3307` | `MARIADB_USER` / `root` |
+| MongoDB 8 | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` |
+
+En SSMS usa el formato `IP,puerto` (ej: `192.168.79.128,1434`).
+
+---
+
+## Arquitectura interna
+
+### Init containers
+
+Todos los servicios usan un init container (`busybox`) que crea los directorios `data/`, `backup/`, `log/` y aplica el `chown` correcto antes de que arranque el motor:
+
+| Motor | UID del proceso |
+|---|---|
+| SQL Server | `10001` (usuario `mssql`) |
+| PostgreSQL / MySQL / MariaDB / MongoDB | `999` |
+
+El motor arranca **sin** `user: "0"` — nunca corre como root.
+
+### Bind mounts (no named volumes)
+
+Los datos viven en carpetas locales del host, lo que permite:
+- Acceso directo a ficheros sin pasar por Docker
+- Backups con herramientas del SO (`rsync`, `tar`, etc.)
+- Portabilidad entre hosts
+
+```
+<servicio>/
+├── data/      ← datos del motor
+├── backup/    ← directorio de backups
+├── log/       ← logs del motor
+└── config/    ← archivos de configuración (montados :ro)
+```
+
+### Límites de recursos
+
+Todos los servicios tienen `deploy.resources` configurado:
+
+| Motor | RAM límite | RAM reservada | CPU límite |
+|---|---|---|---|
+| SQL Server (ambos) | 1.2 GB | 256 MB | 1.5 |
+| PostgreSQL (ambos) | 1.5 GB | 256 MB | 1.5 |
+| MySQL / MariaDB | 1.5 GB | 256 MB | 1.5 |
+| MongoDB | 1.0 GB | 256 MB | 1.0 |
+
+Además, SQL Server tiene `memorylimitmb = 900` en `mssql.conf` para limitar el motor internamente.
+
+### Health checks
+
+Todos los servicios tienen health check configurado. Verificar estado:
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}"
+# o
+dbs-ps-healthy
+```
+
+### Política de reinicio
+
+Todos los servicios tienen `restart: no` — **no arrancan automáticamente** al iniciar Docker o el host. Para cambiar el comportamiento de un servicio edita su `compose.yaml`:
+
+```yaml
+restart: unless-stopped   # arranca con Docker, excepto si fue detenido manualmente
+```
+
+---
+
+## Configuración avanzada
+
+Edita el archivo de configuración correspondiente y reinicia el contenedor:
+
+| Motor | Archivo | Parámetros clave |
+|---|---|---|
+| SQL Server | `mssql.conf` | `memorylimitmb`, `tlsprotocols`, `forceencryption` |
+| PostgreSQL | `postgresql.conf` / `pg_hba.conf` | `shared_buffers`, `max_connections`, autenticación |
+| MySQL | `my.cnf` | `innodb_buffer_pool_size`, `max_connections`, binary log |
+| MariaDB | `my.cnf` | Igual que MySQL + parámetros Aria |
+| MongoDB | `mongod.conf` | `wiredTiger`, `net.tls`, `operationProfiling` |
+
+```bash
+# Aplicar cambios de configuración
+docker compose --profile postgresql18 restart
+```
+
+---
+
+## Gestión de datos
+
+```bash
+# Espacio usado por un servicio
+du -sh ~/Docker_DBs/postgresql18/data/
+
+# Destruir y recrear desde cero (⚠ borra todos los datos)
+docker compose --profile postgresql18 down
+rm -rf ~/Docker_DBs/postgresql18/data/
+docker compose --profile postgresql18 up -d
+```
+
+---
+
+## Nota: SQL Server y primera ejecución con collation personalizada
+
+SQL Server 2022 con `Latin1_General_100_CI_AS_SC` (distinto al default) realiza un restart interno al primer arranque. El `start_period` del health check está fijado en **300s** para evitar falsos negativos. SQL Server 2025 tiene `start_period: 60s`.
+
 
 ## Motores incluidos
 
