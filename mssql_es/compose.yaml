@@ -28,6 +28,14 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+          cpus: "1.5"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
 
 volumes:
   sqlserver25_es_data:
