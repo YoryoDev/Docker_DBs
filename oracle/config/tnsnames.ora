@@ -1,0 +1,31 @@
+# =============================================================
+# tnsnames.ora — Oracle Database Free 26ai
+# Referencia: https://docs.oracle.com/en/database/oracle/oracle-database/23/netrf/
+#
+# Para conectar desde el host (o desde otro contenedor en la misma red),
+# usa el alias definido aquí:
+#   sqlplus sys/password@FREE as sysdba
+#   sqlplus pdbadmin/password@FREEPDB1
+# =============================================================
+
+# ── CDB$ROOT — base de datos raíz ────────────────────────────
+FREE =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = oracle_free)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREE)
+    )
+  )
+
+# ── FREEPDB1 — Pluggable Database por defecto ─────────────────
+# En Oracle Free el PDB se llama siempre FREEPDB1 y no se puede cambiar.
+# Conecta aquí para operaciones de usuario normal (no SYSDBA).
+FREEPDB1 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = oracle_free)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREEPDB1)
+    )
+  )

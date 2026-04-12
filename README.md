@@ -8,6 +8,7 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 |---|---|---|---|---|
 | `mssql2025` | SQL Server 2025 | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `mssql2025` |
 | `mssql2022` | SQL Server 2022 | `mssql/server:2022-CU23-ubuntu-22.04` | `1434` | `mssql2022` |
+| `oracle` | Oracle Database Free 26ai | `database/free:latest` | `1521` | `oracle` |
 | `postgresql18` | PostgreSQL 18.2 | `postgres:18.2` | `5432` | `postgresql18` |
 | `postgresql17` | PostgreSQL 17.4 LTS | `postgres:17.4` | `5433` | `postgresql17` |
 | `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `mariadb` |
@@ -39,6 +40,13 @@ Docker_DBs/
 │   ├── .env.example
 │   └── config/
 │       └── mssql.conf
+├── oracle/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       ├── listener.ora
+│       ├── sqlnet.ora
+│       └── tnsnames.ora
 ├── postgresql18/
 │   ├── compose.yaml
 │   ├── .env.example
@@ -86,6 +94,7 @@ cp mariadb/.env.example      mariadb/.env
 cp mongodb/.env.example      mongodb/.env
 cp mssql2025/.env.example     mssql2025/.env
 cp mssql2022/.env.example     mssql2022/.env
+cp oracle/.env.example        oracle/.env
 ```
 
 ### 3. Editar el `.env` de cada servicio
@@ -138,6 +147,7 @@ docker compose --profile mariadb up -d
 docker compose --profile mongodb up -d
 docker compose --profile mssql2025 up -d
 docker compose --profile mssql2022 up -d
+docker compose --profile oracle up -d
 ```
 
 ### Levantar varios servicios a la vez
@@ -156,6 +166,7 @@ docker compose \
   --profile mongodb \
   --profile mssql2025 \
   --profile mssql2022 \
+  --profile oracle \
   up -d
 ```
 
@@ -256,6 +267,7 @@ rm -rf ~/Docker_DBs/postgresql18/data/
 | MongoDB | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` | Auth habilitado |
 | SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` | Collation: `Latin1_General_100_CI_AS_SC` |
 | SQL Server 2022 | `BIND_ADDRESS` | `1434` | `sa` | Puerto 1434 para no colisionar con SQL Server 2025 |
+| Oracle Free 26ai | `BIND_ADDRESS` | `1521` | `sys` / `pdbadmin` | CDB: `FREE`; PDB: `FREEPDB1`. Requiere `docker login container-registry.oracle.com` |
 
 ---
 
@@ -271,6 +283,9 @@ Los archivos de configuración de cada motor se encuentran en `<servicio>/config
 | MariaDB | `my.cnf` | Igual a MySQL + ajustes específicos de MariaDB |
 | MongoDB | `mongod.conf` | WiredTiger, red, TLS, profiler |
 | SQL Server | `mssql.conf` | Puerto, TLS, memoria, rutas de archivos |
+| Oracle | `listener.ora` | Dirección de escucha y timeouts del listener |
+| Oracle | `sqlnet.ora` | Autenticación, timeouts y cifrado SQL*Net |
+| Oracle | `tnsnames.ora` | Alias de conexión para CDB (FREE) y PDB (FREEPDB1) |
 
 Edita el archivo correspondiente y reinicia el contenedor para aplicar los cambios:
 
@@ -283,3 +298,26 @@ docker compose --profile postgresql18 restart
 ## Nota: SQL Server y permisos de directorio
 
 SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que crea los directorios locales (`data/`, `backup/`, `jobs/`, `log/`) y les aplica `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
+
+---
+
+## Nota: Oracle Database Free y acceso al registro de contenedores
+
+Oracle Database Free se distribuye desde el **Oracle Container Registry** (OCR), que requiere autenticación previa:
+
+```bash
+# 1. Crea una cuenta gratuita en https://profile.oracle.com/myprofile/account/create-account.jspx
+# 2. Acepta la licencia en https://container-registry.oracle.com → database → free
+# 3. Autentica Docker contra el OCR
+docker login container-registry.oracle.com
+```
+
+**Limitaciones de Oracle Database Free 26ai:**
+- Máximo 2 CPU threads y 2 GB de RAM para el motor de base de datos
+- Máximo 12 GB de datos de usuario en disco
+- El SID siempre es `FREE`; el PDB siempre es `FREEPDB1` (no se pueden cambiar)
+- La primera vez que se inicia con un directorio `./data` vacío, Oracle crea la base de datos (puede tardar hasta 10 minutos)
+
+**Init container y usuario `oracle`:** Oracle corre como UID `54321`. El init container aplica `chown 54321:54321` a los directorios `data/`, `backup/` y `log/` antes de arrancar el motor.
+
+**`shm_size: "1g"`:** Oracle SGA usa memoria compartida (`/dev/shm`). El valor por defecto de Docker (64 MB) es insuficiente; este repo fija 1 GB para evitar errores de inicio.

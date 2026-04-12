@@ -1,0 +1,22 @@
+# =============================================================
+# listener.ora — Oracle Database Free 26ai
+# Referencia: https://docs.oracle.com/en/database/oracle/oracle-database/23/netrf/
+#
+# En Oracle 12c+ el SID_LIST_LISTENER no es obligatorio:
+# la instancia se registra dinámicamente vía LREG (listener registration).
+# Solo definimos la dirección de escucha; el servicio FREE y FREEPDB1
+# quedan registrados automáticamente al arrancar la instancia.
+# =============================================================
+
+LISTENER =
+  (DESCRIPTION_LIST =
+    (DESCRIPTION =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 0.0.0.0)(PORT = 1521))
+    )
+  )
+
+# Tiempo máximo (segundos) para que un cliente complete el handshake de conexión
+INBOUND_CONNECT_TIMEOUT_LISTENER = 60
+
+# Directorio base para los logs de diagnóstico del listener (ADR)
+ADR_BASE_LISTENER = /opt/oracle/diag

@@ -3,6 +3,8 @@ include:
     env_file: ./mssql2025/.env
   - path: ./mssql2022/compose.yaml
     env_file: ./mssql2022/.env
+  - path: ./oracle/compose.yaml
+    env_file: ./oracle/.env
   - path: ./postgresql18/compose.yaml
     env_file: ./postgresql18/.env
   - path: ./postgresql17/compose.yaml

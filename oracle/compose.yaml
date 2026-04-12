@@ -1,0 +1,61 @@
+services:
+
+  oracle_init:
+    image: busybox:latest
+    user: "0"
+    profiles:
+      - oracle
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /mnt/data /mnt/backup /mnt/log
+        chown -R 54321:54321 /mnt/data /mnt/backup /mnt/log
+    volumes:
+      - ./data:/mnt/data
+      - ./backup:/mnt/backup
+      - ./log:/mnt/log
+
+  oracle:
+    image: container-registry.oracle.com/database/free:latest
+    container_name: oracle_free
+    hostname: oracle_free
+    restart: no
+    # Oracle SGA necesita /dev/shm amplio; sin esto el motor puede fallar al arrancar
+    shm_size: "1g"
+    depends_on:
+      oracle_init:
+        condition: service_completed_successfully
+    profiles:
+      - oracle
+    ports:
+      - "${BIND_ADDRESS}:1521:1521"
+    volumes:
+      - ./data:/opt/oracle/oradata
+      - ./backup:/opt/oracle/backup
+      - ./log:/opt/oracle/diag
+      - ./config:/opt/oracle/network/admin:ro
+    environment:
+      # Contraseña para SYS, SYSTEM y PDBADMIN
+      ORACLE_PWD: ${ORACLE_PWD}
+      # Juego de caracteres (solo se aplica en la creación de una base de datos nueva)
+      ORACLE_CHARACTERSET: "AL32UTF8"
+      # Directorio de configuración de red (listener, sqlnet, tnsnames)
+      TNS_ADMIN: /opt/oracle/network/admin
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/oracle/healthcheck.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 20
+      # Primera vez con directorio vacío puede tardar hasta 10 min en crear la BD
+      start_period: 600s
+    deploy:
+      resources:
+        limits:
+          # Oracle Free limita internamente a 2 GB RAM; el límite del contenedor
+          # cubre procesos del SO y background jobs de Oracle
+          memory: 3G
+          cpus: "1.5"
+        reservations:
+          memory: 1G
+          cpus: "0.5"
