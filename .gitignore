@@ -16,14 +16,10 @@ postgresql18/log/
 mongodb/data/
 mongodb/backup/
 mongodb/log/
-mssql_en/data/
-mssql_en/backup/
-mssql_en/jobs/
-mssql_en/log/
-mssql_es/data/
-mssql_es/backup/
-mssql_es/jobs/
-mssql_es/log/
+mssql2025/data/
+mssql2025/backup/
+mssql2025/jobs/
+mssql2025/log/
 
 # Certificados TLS (nunca deben llegar al repositorio)
 *.pem

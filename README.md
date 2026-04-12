@@ -6,8 +6,7 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 
 | Servicio | Motor | Imagen | Puerto host | Perfil |
 |---|---|---|---|---|
-| `mssql_en` | SQL Server 2025 (collation inglés) | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `mssql-en` |
-| `mssql_es` | SQL Server 2025 (collation español) | `mssql/server:2025-CU3-ubuntu-22.04` | `1434` | `mssql-es` |
+| `mssql2025` | SQL Server 2025 | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `mssql2025` |
 | `postgresql18` | PostgreSQL 18.2 | `postgres:18.2` | `5432` | `postgresql18` |
 | `postgresql17` | PostgreSQL 17.4 LTS | `postgres:17.4` | `5433` | `postgresql17` |
 | `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `mariadb` |
@@ -29,12 +28,7 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 ```
 Docker_DBs/
 ├── compose.yaml          ← orquestador raíz (include + profiles)
-├── mssql_en/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       └── mssql.conf
-├── mssql_es/
+├── mssql2025/
 │   ├── compose.yaml
 │   ├── .env.example
 │   └── config/
@@ -84,8 +78,7 @@ cp postgresql18/.env.example postgresql18/.env
 cp mysql/.env.example        mysql/.env
 cp mariadb/.env.example      mariadb/.env
 cp mongodb/.env.example      mongodb/.env
-cp mssql_en/.env.example     mssql_en/.env
-cp mssql_es/.env.example     mssql_es/.env
+cp mssql2025/.env.example     mssql2025/.env
 ```
 
 ### 3. Editar el `.env` de cada servicio
@@ -136,8 +129,7 @@ docker compose --profile postgresql18 up -d
 docker compose --profile mysql up -d
 docker compose --profile mariadb up -d
 docker compose --profile mongodb up -d
-docker compose --profile mssql-en up -d
-docker compose --profile mssql-es up -d
+docker compose --profile mssql2025 up -d
 ```
 
 ### Levantar varios servicios a la vez
@@ -154,8 +146,7 @@ docker compose \
   --profile mysql \
   --profile mariadb \
   --profile mongodb \
-  --profile mssql-en \
-  --profile mssql-es \
+  --profile mssql2025 \
   up -d
 ```
 
@@ -200,8 +191,7 @@ docker logs -f postgresql18
 docker logs -f mysql8
 docker logs -f mariadb
 docker logs -f mongodb8
-docker logs -f sqlserver25_en
-docker logs -f sqlserver25_es
+docker logs -f sqlserver25
 ```
 
 ---
@@ -232,17 +222,17 @@ docker compose --profile postgresql18 up -d
 
 ---
 
-## Gestión de volúmenes
+## Gestión de datos
+
+Los datos de cada motor se almacenan en subdirectorios dentro de la carpeta del servicio (`data/`, `backup/`, `log/`). Estos directorios están en `.gitignore` y son creados automáticamente por el init container al primer arranque.
 
 ```bash
-# Listar volúmenes del proyecto
-docker volume ls | grep docker-db
+# Ver el espacio usado por los datos de un servicio
+du -sh ~/Docker_DBs/postgresql18/data/
 
-# Inspeccionar un volumen
-docker volume inspect docker-db_postgresql18_data
-
-# Eliminar un volumen manualmente (⚠ borra los datos)
-docker volume rm docker-db_postgresql18_data
+# Eliminar los datos de un servicio (⚠ borra todo)
+docker compose --profile postgresql18 down
+rm -rf ~/Docker_DBs/postgresql18/data/
 ```
 
 ---
@@ -255,8 +245,7 @@ docker volume rm docker-db_postgresql18_data
 | MySQL | `BIND_ADDRESS` | `3306` | `MYSQL_USER` / `root` | — |
 | MariaDB | `BIND_ADDRESS` | `3307` | `MARIADB_USER` / `root` | Puerto 3307 para no colisionar con MySQL |
 | MongoDB | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` | Auth habilitado |
-| SQL Server EN | `BIND_ADDRESS` | `1433` | `sa` | — |
-| SQL Server ES | `BIND_ADDRESS` | `1434` | `sa` | Puerto 1434 para instancia separada |
+| SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` | Collation: `Latin1_General_100_CI_AS_SC` |
 
 ---
 
@@ -281,66 +270,6 @@ docker compose --profile postgresql18 restart
 
 ---
 
-## Nota: SQL Server y permisos de volumen
+## Nota: SQL Server y permisos de directorio
 
-SQL Server 2025 corre por defecto como el usuario `mssql` (UID `10001`), un usuario sin privilegios. Cuando Docker crea los volúmenes por primera vez, los directorios quedan con dueño `root`, lo que provoca este error al iniciar:
-
-```
-ERROR: Setup FAILED copying system data file: 5(Access is denied.)
-```
-
-### Solución aplicada
-
-En este repo los servicios `mssql_en` y `mssql_es` tienen configurado `user: "0"`, lo que fuerza al contenedor a correr como `root` y elimina el problema de permisos:
-
-```yaml
-services:
-  mssql_en:
-    image: mcr.microsoft.com/mssql/server:2025-latest
-    user: "0"    # corre como root para evitar errores de acceso en los volúmenes
-```
-
-### Mejores prácticas para este caso
-
-| Opción | Seguridad | Complejidad | Recomendado para |
-|---|---|---|---|
-| `user: "0"` (root) — **opción actual** | ⚠ Baja | Baja | Desarrollo / VM local |
-| Init container (`chown` previo) | ✅ Alta | Media | Staging / producción |
-| Volumen con `tmpfs` o permisos correctos desde el SO | ✅ Alta | Alta | Producción en nube |
-
-**Para entornos de producción o exposición pública se recomienda:**
-
-1. **No usar `user: "0"`** — correr como root dentro del contenedor amplía la superficie de ataque. Si el contenedor es comprometido, el atacante tiene acceso root al filesystem del volumen.
-
-2. **Usar un init container** que arregle los permisos antes de arrancar SQL Server:
-
-```yaml
-services:
-  mssql_en_init:
-    image: busybox:latest
-    user: "0"
-    command:
-      - sh
-      - -c
-      - chown -R 10001:10001 /var/opt/mssql/data /var/opt/mssql/backup /var/opt/mssql/jobs /var/opt/mssql/log
-    volumes:
-      - sqlserver25_en_data:/var/opt/mssql/data
-      - sqlserver25_en_backup:/var/opt/mssql/backup
-      - sqlserver25_en_jobs:/var/opt/mssql/jobs
-      - sqlserver25_en_log:/var/opt/mssql/log
-
-  mssql_en:
-    image: mcr.microsoft.com/mssql/server:2025-latest
-    # sin user: "0" — corre como mssql (UID 10001)
-    depends_on:
-      mssql_en_init:
-        condition: service_completed_successfully
-```
-
-3. **Eliminar volúmenes corruptos** antes de recrear el contenedor (si el contenedor nunca arrancó correctamente, no hay datos que perder):
-
-```bash
-docker volume rm docker-db_sqlserver25_en_data docker-db_sqlserver25_en_backup \
-                 docker-db_sqlserver25_en_jobs  docker-db_sqlserver25_en_log
-docker compose --profile mssql-en up -d
-```
+SQL Server 2025 corre por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init`) que crea los directorios locales (`data/`, `backup/`, `jobs/`, `log/`) y les aplica `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.

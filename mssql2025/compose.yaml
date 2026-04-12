@@ -1,10 +1,10 @@
 services:
 
-  mssql_es_init:
+  mssql2025_init:
     image: busybox:latest
     user: "0"
     profiles:
-      - mssql-es
+      - mssql2025
     command:
       - sh
       - -c
@@ -17,18 +17,18 @@ services:
       - ./jobs:/mnt/jobs
       - ./log:/mnt/log
 
-  mssql_es:
+  mssql2025:
     image: mcr.microsoft.com/mssql/server:2025-CU3-ubuntu-22.04
-    container_name: sqlserver25_es
-    hostname: sqlserver25_es
+    container_name: sqlserver25
+    hostname: sqlserver25
     restart: no
     depends_on:
-      mssql_es_init:
+      mssql2025_init:
         condition: service_completed_successfully
     profiles:
-      - mssql-es
+      - mssql2025
     ports:
-      - "${BIND_ADDRESS}:1434:1433"
+      - "${BIND_ADDRESS}:1433:1433"
     volumes:
       - ./data:/var/opt/mssql/data
       - ./backup:/var/opt/mssql/backup
@@ -40,7 +40,7 @@ services:
       MSSQL_PID: "StandardDeveloper"
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
       MSSQL_AGENT_ENABLED: "true"
-      MSSQL_COLLATION: "Modern_Spanish_CI_AS"
+      MSSQL_COLLATION: "Latin1_General_100_CI_AS_SC"
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q 'SELECT 1' -No -l 5"]
       interval: 15s
@@ -55,4 +55,3 @@ services:
         reservations:
           memory: 512M
           cpus: "0.5"
-
