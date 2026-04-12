@@ -7,6 +7,7 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 | Servicio | Motor | Imagen | Puerto host | Perfil |
 |---|---|---|---|---|
 | `mssql2025` | SQL Server 2025 | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `mssql2025` |
+| `mssql2022` | SQL Server 2022 | `mssql/server:2022-CU23-ubuntu-22.04` | `1434` | `mssql2022` |
 | `postgresql18` | PostgreSQL 18.2 | `postgres:18.2` | `5432` | `postgresql18` |
 | `postgresql17` | PostgreSQL 17.4 LTS | `postgres:17.4` | `5433` | `postgresql17` |
 | `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `mariadb` |
@@ -29,6 +30,11 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 Docker_DBs/
 ├── compose.yaml          ← orquestador raíz (include + profiles)
 ├── mssql2025/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       └── mssql.conf
+├── mssql2022/
 │   ├── compose.yaml
 │   ├── .env.example
 │   └── config/
@@ -79,6 +85,7 @@ cp mysql/.env.example        mysql/.env
 cp mariadb/.env.example      mariadb/.env
 cp mongodb/.env.example      mongodb/.env
 cp mssql2025/.env.example     mssql2025/.env
+cp mssql2022/.env.example     mssql2022/.env
 ```
 
 ### 3. Editar el `.env` de cada servicio
@@ -130,6 +137,7 @@ docker compose --profile mysql up -d
 docker compose --profile mariadb up -d
 docker compose --profile mongodb up -d
 docker compose --profile mssql2025 up -d
+docker compose --profile mssql2022 up -d
 ```
 
 ### Levantar varios servicios a la vez
@@ -147,6 +155,7 @@ docker compose \
   --profile mariadb \
   --profile mongodb \
   --profile mssql2025 \
+  --profile mssql2022 \
   up -d
 ```
 
@@ -246,6 +255,7 @@ rm -rf ~/Docker_DBs/postgresql18/data/
 | MariaDB | `BIND_ADDRESS` | `3307` | `MARIADB_USER` / `root` | Puerto 3307 para no colisionar con MySQL |
 | MongoDB | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` | Auth habilitado |
 | SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` | Collation: `Latin1_General_100_CI_AS_SC` |
+| SQL Server 2022 | `BIND_ADDRESS` | `1434` | `sa` | Puerto 1434 para no colisionar con SQL Server 2025 |
 
 ---
 
@@ -272,4 +282,4 @@ docker compose --profile postgresql18 restart
 
 ## Nota: SQL Server y permisos de directorio
 
-SQL Server 2025 corre por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init`) que crea los directorios locales (`data/`, `backup/`, `jobs/`, `log/`) y les aplica `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
+SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que crea los directorios locales (`data/`, `backup/`, `jobs/`, `log/`) y les aplica `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.

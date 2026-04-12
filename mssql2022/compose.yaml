@@ -1,0 +1,57 @@
+services:
+
+  mssql2022_init:
+    image: busybox:latest
+    user: "0"
+    profiles:
+      - mssql2022
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /mnt/data /mnt/backup /mnt/jobs /mnt/log
+        chown -R 10001:0 /mnt/data /mnt/backup /mnt/jobs /mnt/log
+    volumes:
+      - ./data:/mnt/data
+      - ./backup:/mnt/backup
+      - ./jobs:/mnt/jobs
+      - ./log:/mnt/log
+
+  mssql2022:
+    image: mcr.microsoft.com/mssql/server:2022-CU23-ubuntu-22.04
+    container_name: sqlserver22
+    hostname: sqlserver22
+    restart: no
+    depends_on:
+      mssql2022_init:
+        condition: service_completed_successfully
+    profiles:
+      - mssql2022
+    ports:
+      - "${BIND_ADDRESS}:1434:1433"
+    volumes:
+      - ./data:/var/opt/mssql/data
+      - ./backup:/var/opt/mssql/backup
+      - ./jobs:/var/opt/mssql/jobs
+      - ./log:/var/opt/mssql/log
+      - ./config/mssql.conf:/var/opt/mssql/mssql.conf:ro
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_AGENT_ENABLED: "true"
+      MSSQL_COLLATION: "Latin1_General_100_CI_AS_SC"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q 'SELECT 1' -No -l 5"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+          cpus: "1.5"
+        reservations:
+          memory: 512M
+          cpus: "0.5"

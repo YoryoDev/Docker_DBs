@@ -20,6 +20,10 @@ mssql2025/data/
 mssql2025/backup/
 mssql2025/jobs/
 mssql2025/log/
+mssql2022/data/
+mssql2022/backup/
+mssql2022/jobs/
+mssql2022/log/
 
 # Certificados TLS (nunca deben llegar al repositorio)
 *.pem
