@@ -1,19 +1,38 @@
 services:
 
+  postgresql17_init:
+    image: busybox:latest
+    user: "0"
+    profiles:
+      - postgresql17
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /mnt/data /mnt/backup /mnt/log
+        chown -R 999:999 /mnt/data /mnt/backup /mnt/log
+    volumes:
+      - ./data:/mnt/data
+      - ./backup:/mnt/backup
+      - ./log:/mnt/log
+
   postgresql17:
     image: postgres:17.4
     container_name: postgresql17
     hostname: postgresql17
     restart: no
+    depends_on:
+      postgresql17_init:
+        condition: service_completed_successfully
     profiles:
       - postgresql17
     command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     ports:
       - "${BIND_ADDRESS}:5433:5432"
     volumes:
-      - postgresql17_data:/var/lib/postgresql/data
-      - postgresql17_backup:/var/lib/postgresql/backup
-      - postgresql17_log:/var/log/postgresql
+      - ./data:/var/lib/postgresql/data
+      - ./backup:/var/lib/postgresql/backup
+      - ./log:/var/log/postgresql
       - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     environment:
@@ -35,7 +54,3 @@ services:
           memory: 256M
           cpus: "0.25"
 
-volumes:
-  postgresql17_data:
-  postgresql17_backup:
-  postgresql17_log:

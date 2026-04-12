@@ -9,16 +9,13 @@ services:
       - sh
       - -c
       - |
-        chown -R 10001:0 \
-          /var/opt/mssql/data \
-          /var/opt/mssql/backup \
-          /var/opt/mssql/jobs \
-          /var/opt/mssql/log
+        mkdir -p /mnt/data /mnt/backup /mnt/jobs /mnt/log
+        chown -R 10001:0 /mnt/data /mnt/backup /mnt/jobs /mnt/log
     volumes:
-      - sqlserver25_en_data:/var/opt/mssql/data
-      - sqlserver25_en_backup:/var/opt/mssql/backup
-      - sqlserver25_en_jobs:/var/opt/mssql/jobs
-      - sqlserver25_en_log:/var/opt/mssql/log
+      - ./data:/mnt/data
+      - ./backup:/mnt/backup
+      - ./jobs:/mnt/jobs
+      - ./log:/mnt/log
 
   mssql_en:
     image: mcr.microsoft.com/mssql/server:2025-CU3-ubuntu-22.04
@@ -59,8 +56,3 @@ services:
           memory: 512M
           cpus: "0.5"
 
-volumes:
-  sqlserver25_en_data:
-  sqlserver25_en_backup:
-  sqlserver25_en_jobs:
-  sqlserver25_en_log:

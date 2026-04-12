@@ -1,19 +1,38 @@
 services:
 
+  postgresql18_init:
+    image: busybox:latest
+    user: "0"
+    profiles:
+      - postgresql18
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /mnt/data /mnt/backup /mnt/log
+        chown -R 999:999 /mnt/data /mnt/backup /mnt/log
+    volumes:
+      - ./data:/mnt/data
+      - ./backup:/mnt/backup
+      - ./log:/mnt/log
+
   postgresql:
     image: postgres:18.2
     container_name: postgresql18
     hostname: postgresql18
     restart: no
+    depends_on:
+      postgresql18_init:
+        condition: service_completed_successfully
     profiles:
       - postgresql18
     command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     ports:
       - "${BIND_ADDRESS}:5432:5432"
     volumes:
-      - postgresql18_data:/var/lib/postgresql/data
-      - postgresql18_backup:/var/lib/postgresql/backup
-      - postgresql18_log:/var/log/postgresql
+      - ./data:/var/lib/postgresql/data
+      - ./backup:/var/lib/postgresql/backup
+      - ./log:/var/log/postgresql
       - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     environment:
@@ -35,7 +54,3 @@ services:
           memory: 256M
           cpus: "0.25"
 
-volumes:
-  postgresql18_data:
-  postgresql18_backup:
-  postgresql18_log:

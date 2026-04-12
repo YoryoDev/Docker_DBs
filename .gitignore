@@ -1,1 +1,32 @@
 .env
+
+# Directorios de datos (bind mounts — no se deben commitar)
+mariadb/data/
+mariadb/backup/
+mariadb/log/
+mysql/data/
+mysql/backup/
+mysql/log/
+postgresql17/data/
+postgresql17/backup/
+postgresql17/log/
+postgresql18/data/
+postgresql18/backup/
+postgresql18/log/
+mongodb/data/
+mongodb/backup/
+mongodb/log/
+mssql_en/data/
+mssql_en/backup/
+mssql_en/jobs/
+mssql_en/log/
+mssql_es/data/
+mssql_es/backup/
+mssql_es/jobs/
+mssql_es/log/
+
+# Certificados TLS (nunca deben llegar al repositorio)
+*.pem
+*.key
+*.crt
+*.p12

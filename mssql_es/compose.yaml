@@ -9,16 +9,13 @@ services:
       - sh
       - -c
       - |
-        chown -R 10001:0 \
-          /var/opt/mssql/data \
-          /var/opt/mssql/backup \
-          /var/opt/mssql/jobs \
-          /var/opt/mssql/log
+        mkdir -p /mnt/data /mnt/backup /mnt/jobs /mnt/log
+        chown -R 10001:0 /mnt/data /mnt/backup /mnt/jobs /mnt/log
     volumes:
-      - sqlserver25_es_data:/var/opt/mssql/data
-      - sqlserver25_es_backup:/var/opt/mssql/backup
-      - sqlserver25_es_jobs:/var/opt/mssql/jobs
-      - sqlserver25_es_log:/var/opt/mssql/log
+      - ./data:/mnt/data
+      - ./backup:/mnt/backup
+      - ./jobs:/mnt/jobs
+      - ./log:/mnt/log
 
   mssql_es:
     image: mcr.microsoft.com/mssql/server:2025-CU3-ubuntu-22.04
@@ -33,10 +30,10 @@ services:
     ports:
       - "${BIND_ADDRESS}:1434:1433"
     volumes:
-      - sqlserver25_es_data:/var/opt/mssql/data
-      - sqlserver25_es_backup:/var/opt/mssql/backup
-      - sqlserver25_es_jobs:/var/opt/mssql/jobs
-      - sqlserver25_es_log:/var/opt/mssql/log
+      - ./data:/var/opt/mssql/data
+      - ./backup:/var/opt/mssql/backup
+      - ./jobs:/var/opt/mssql/jobs
+      - ./log:/var/opt/mssql/log
       - ./config/mssql.conf:/var/opt/mssql/mssql.conf:ro
     environment:
       ACCEPT_EULA: "Y"
@@ -59,8 +56,3 @@ services:
           memory: 512M
           cpus: "0.5"
 
-volumes:
-  sqlserver25_es_data:
-  sqlserver25_es_backup:
-  sqlserver25_es_jobs:
-  sqlserver25_es_log:
