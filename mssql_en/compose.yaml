@@ -1,11 +1,33 @@
 services:
 
+  mssql_en_init:
+    image: busybox:latest
+    user: "0"
+    profiles:
+      - mssql-en
+    command:
+      - sh
+      - -c
+      - |
+        chown -R 10001:0 \
+          /var/opt/mssql/data \
+          /var/opt/mssql/backup \
+          /var/opt/mssql/jobs \
+          /var/opt/mssql/log
+    volumes:
+      - sqlserver25_en_data:/var/opt/mssql/data
+      - sqlserver25_en_backup:/var/opt/mssql/backup
+      - sqlserver25_en_jobs:/var/opt/mssql/jobs
+      - sqlserver25_en_log:/var/opt/mssql/log
+
   mssql_en:
     image: mcr.microsoft.com/mssql/server:2025-CU3-ubuntu-22.04
     container_name: sqlserver25_en
     hostname: sqlserver25_en
     restart: no
-    user: "0"
+    depends_on:
+      mssql_en_init:
+        condition: service_completed_successfully
     profiles:
       - mssql-en
     ports:
