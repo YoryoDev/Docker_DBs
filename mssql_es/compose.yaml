@@ -1,7 +1,7 @@
 services:
 
   mssql_es:
-    image: mcr.microsoft.com/mssql/server:2025-latest
+    image: mcr.microsoft.com/mssql/server:2025-CU3-ubuntu-22.04
     container_name: sqlserver25_es
     hostname: sqlserver25_es
     restart: no

@@ -4,15 +4,15 @@ Repositorio de configuraciones Docker Compose para levantar motores de base de d
 
 ## Motores incluidos
 
-| Servicio | Motor | Puerto host | Perfil |
-|---|---|---|---|
-| `mssql_en` | SQL Server 2025 (collation inglés) | `1433` | `mssql-en` |
-| `mssql_es` | SQL Server 2025 (collation español) | `1434` | `mssql-es` |
-| `postgresql18` | PostgreSQL 18.2 | `5432` | `postgresql18` |
-| `postgresql17` | PostgreSQL 17.4 LTS | `5433` | `postgresql17` |
-| `mariadb` | MariaDB 11.4 LTS | `3307` | `mariadb` |
-| `mysql` | MySQL 8.4 LTS | `3306` | `mysql` |
-| `mongodb` | MongoDB 8.0 | `27017` | `mongodb` |
+| Servicio | Motor | Imagen | Puerto host | Perfil |
+|---|---|---|---|---|
+| `mssql_en` | SQL Server 2025 (collation inglés) | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `mssql-en` |
+| `mssql_es` | SQL Server 2025 (collation español) | `mssql/server:2025-CU3-ubuntu-22.04` | `1434` | `mssql-es` |
+| `postgresql18` | PostgreSQL 18.2 | `postgres:18.2-alpine3.23` | `5432` | `postgresql18` |
+| `postgresql17` | PostgreSQL 17.4 LTS | `postgres:17.4-alpine3.21` | `5433` | `postgresql17` |
+| `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `mariadb` |
+| `mysql` | MySQL 8.4.8 LTS | `mysql:8.4.8` | `3306` | `mysql` |
+| `mongodb` | MongoDB 8.0.20 | `mongo:8.0.20` | `27017` | `mongodb` |
 
 ---
 
