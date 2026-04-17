@@ -13,6 +13,7 @@ Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desar
 | `mariadb` | `mariadb:11.4.10` | `3307` | `utf8mb4_unicode_ci` |
 | `mysql` | `mysql:8.4.8` | `3306` | `utf8mb4_unicode_ci` |
 | `mongodb` | `mongo:8.0.20` | `27017` | — |
+| `oracle19c` | `enterprise:19.3.0.0` | `1521` / `5500` | `AL32UTF8` |
 
 ---
 
@@ -37,6 +38,7 @@ cp postgresql17/.env.example postgresql17/.env
 cp mariadb/.env.example    mariadb/.env
 cp mysql/.env.example      mysql/.env
 cp mongodb/.env.example    mongodb/.env
+cp oracle19c/.env.example  oracle19c/.env
 ```
 
 ### Variable `BIND_ADDRESS`
@@ -128,6 +130,7 @@ Todos los servicios usan un init container (`busybox`) que crea los directorios 
 |---|---|
 | SQL Server | `10001` (usuario `mssql`) |
 | PostgreSQL / MySQL / MariaDB / MongoDB | `999` |
+| Oracle 19c | `54321` (usuario `oracle`) |
 
 El motor arranca **sin** `user: "0"` — nunca corre como root.
 
@@ -156,8 +159,10 @@ Todos los servicios tienen `deploy.resources` configurado:
 | PostgreSQL (ambos) | 1.5 GB | 256 MB | 1.5 |
 | MySQL / MariaDB | 1.5 GB | 256 MB | 1.5 |
 | MongoDB | 1.0 GB | 256 MB | 1.0 |
+| Oracle 19c | 2.0 GB | 512 MB | 2.0 |
 
 Además, SQL Server tiene `memorylimitmb = 900` en `mssql.conf` para limitar el motor internamente.
+Oracle 19c tiene `INIT_SGA_SIZE=768` y `INIT_PGA_SIZE=256` (total 1024 MB para el engine).
 
 ### Health checks
 
@@ -228,6 +233,7 @@ SQL Server 2022 con `Latin1_General_100_CI_AS_SC` (distinto al default) realiza 
 | `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `mariadb` |
 | `mysql` | MySQL 8.4.8 LTS | `mysql:8.4.8` | `3306` | `mysql` |
 | `mongodb` | MongoDB 8.0.20 | `mongo:8.0.20` | `27017` | `mongodb` |
+| `oracle19c` | Oracle 19c EE | `enterprise:19.3.0.0` | `1521` / `5500` | `oracle19c` |
 
 ---
 
@@ -271,11 +277,17 @@ Docker_DBs/
 │   ├── .env.example
 │   └── config/
 │       └── my.cnf
-└── mongodb/
+├── mongodb/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       └── mongod.conf
+└── oracle19c/
     ├── compose.yaml
     ├── .env.example
     └── config/
-        └── mongod.conf
+        ├── setup/       ← scripts post-creación (una sola vez)
+        └── startup/     ← scripts post-arranque (cada inicio)
 ```
 
 ---
@@ -301,6 +313,7 @@ cp mariadb/.env.example      mariadb/.env
 cp mongodb/.env.example      mongodb/.env
 cp mssql2025/.env.example     mssql2025/.env
 cp mssql2022/.env.example     mssql2022/.env
+cp oracle19c/.env.example     oracle19c/.env
 ```
 
 ### 3. Editar el `.env` de cada servicio
@@ -353,6 +366,7 @@ docker compose --profile mariadb up -d
 docker compose --profile mongodb up -d
 docker compose --profile mssql2025 up -d
 docker compose --profile mssql2022 up -d
+docker compose --profile oracle19c up -d
 ```
 
 ### Levantar varios servicios a la vez
@@ -371,6 +385,7 @@ docker compose \
   --profile mongodb \
   --profile mssql2025 \
   --profile mssql2022 \
+  --profile oracle19c \
   up -d
 ```
 
@@ -416,6 +431,7 @@ docker logs -f mysql8
 docker logs -f mariadb
 docker logs -f mongodb8
 docker logs -f sqlserver25
+docker logs -f oracle19c
 ```
 
 ---
@@ -471,6 +487,7 @@ rm -rf ~/Docker_DBs/postgresql18/data/
 | MongoDB | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` | Auth habilitado |
 | SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` | Collation: `Latin1_General_100_CI_AS_SC` |
 | SQL Server 2022 | `BIND_ADDRESS` | `1434` | `sa` | Puerto 1434 para no colisionar con SQL Server 2025 |
+| Oracle 19c | `BIND_ADDRESS` | `1521` | `sys` / `system` / `pdbadmin` | SID: `ORCLCDB`, PDB: `ORCLPDB1`, OEM Express: puerto `5500` |
 
 ---
 
@@ -486,6 +503,8 @@ Los archivos de configuración de cada motor se encuentran en `<servicio>/config
 | MariaDB | `my.cnf` | Igual a MySQL + ajustes específicos de MariaDB |
 | MongoDB | `mongod.conf` | WiredTiger, red, TLS, profiler |
 | SQL Server | `mssql.conf` | Puerto, TLS, memoria, rutas de archivos |
+| Oracle 19c | `config/setup/*.sql` | Scripts post-creación (una sola vez) |
+| Oracle 19c | `config/startup/*.sql` | Scripts post-arranque (cada inicio) |
 
 Edita el archivo correspondiente y reinicia el contenedor para aplicar los cambios:
 
@@ -498,5 +517,68 @@ docker compose --profile postgresql18 restart
 ## Nota: SQL Server y permisos de directorio
 
 SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que crea los directorios locales (`data/`, `backup/`, `jobs/`, `log/`) y les aplica `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
+
+## Nota: Oracle 19c Enterprise Edition
+
+### Requisito previo
+
+Antes de poder descargar la imagen, debes aceptar la licencia OTN:
+
+1. Crea una cuenta en [container-registry.oracle.com](https://container-registry.oracle.com).
+2. Navega a **Database → enterprise** y acepta la licencia.
+3. Autentícate desde tu máquina:
+
+```bash
+docker login container-registry.oracle.com
+```
+
+### Primer arranque (~15-20 minutos)
+
+La primera vez que levantes el contenedor, Oracle creará la base de datos desde cero. El health check tiene `start_period: 900s` para acomodar este proceso. **No interrumpas el contenedor durante la creación.**
+
+```bash
+# Monitorear el progreso del primer arranque
+docker compose --profile oracle19c logs -f oracle19c
+# Verás "DATABASE IS READY TO USE!" cuando termine
+```
+
+### Memoria y recursos
+
+Oracle requiere un mínimo de 4 GB de RAM según la documentación oficial. En este entorno de lab está ajustado a **2 GB** (SGA 768 MB + PGA 256 MB). No es recomendable ejecutarlo simultáneamente con todos los demás motores.
+
+### Conexión
+
+```bash
+# Como SYSDBA (dentro del contenedor)
+docker exec -it oracle19c sqlplus / as sysdba
+
+# Como pdbadmin a la PDB
+docker exec -it oracle19c sqlplus pdbadmin/<pass>@ORCLPDB1
+
+# Desde un cliente externo (SQL Developer, DBeaver, DataGrip)
+# Host: BIND_ADDRESS   Puerto: 1521
+# SID: ORCLCDB   Service Name: ORCLPDB1
+
+# OEM Express (navegador)
+# https://BIND_ADDRESS:5500/em
+```
+
+### Configuración
+
+Oracle 19c en contenedor se configura mediante variables de entorno en la creación inicial (definidas en `.env`). Los ajustes posteriores van en:
+
+- `config/setup/*.sql` — ejecutados una sola vez tras la creación de la base.
+- `config/startup/*.sql` — ejecutados en cada arranque del contenedor.
+
+### Scripts internos del contenedor
+
+```bash
+# Cambiar contraseña de SYS/SYSTEM/PDBADMIN
+docker exec oracle19c ./setPassword.sh <nueva_contraseña>
+
+# Reiniciar la instancia sin matar el contenedor
+docker exec oracle19c /home/oracle/shutDown.sh
+docker exec oracle19c /home/oracle/startUp.sh
+```
 
 
