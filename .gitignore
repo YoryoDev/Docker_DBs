@@ -24,6 +24,9 @@ mssql2022/data/
 mssql2022/backup/
 mssql2022/jobs/
 mssql2022/log/
+oracle19c/data/
+oracle19c/backup/
+oracle19c/log/
 
 # Certificados TLS (nunca deben llegar al repositorio)
 *.pem

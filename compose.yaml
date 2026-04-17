@@ -13,3 +13,5 @@ include:
     env_file: ./mysql/.env
   - path: ./mongodb/compose.yaml
     env_file: ./mongodb/.env
+  - path: ./oracle19c/compose.yaml
+    env_file: ./oracle19c/.env

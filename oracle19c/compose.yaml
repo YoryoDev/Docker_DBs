@@ -1,0 +1,67 @@
+services:
+
+  oracle19c_init:
+    image: busybox:latest
+    user: "0"
+    profiles:
+      - oracle19c
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /mnt/data /mnt/backup /mnt/log
+        chown -R 54321:54321 /mnt/data /mnt/backup /mnt/log
+    volumes:
+      - ./data:/mnt/data
+      - ./backup:/mnt/backup
+      - ./log:/mnt/log
+
+  oracle19c:
+    # ─────────────────────────────────────────────────────────────────────
+    # REQUISITO PREVIO — Aceptar la licencia OTN antes de hacer pull:
+    #   1. Inicia sesión en https://container-registry.oracle.com
+    #   2. Navega a Database → enterprise y acepta la licencia.
+    #   3. docker login container-registry.oracle.com
+    # ─────────────────────────────────────────────────────────────────────
+    image: container-registry.oracle.com/database/enterprise:19.3.0.0
+    container_name: oracle19c
+    hostname: oracle19c
+    restart: no
+    depends_on:
+      oracle19c_init:
+        condition: service_completed_successfully
+    profiles:
+      - oracle19c
+    ports:
+      - "${BIND_ADDRESS}:1521:1521"
+      - "${BIND_ADDRESS}:5500:5500"
+    volumes:
+      - ./data:/opt/oracle/oradata
+      - ./backup:/opt/oracle/backup
+      - ./config/setup:/opt/oracle/scripts/setup:ro
+      - ./config/startup:/opt/oracle/scripts/startup:ro
+    # Oracle 19c en contenedor se configura por variables de entorno en la
+    # creación inicial de la base de datos. Los ajustes post-creación van
+    # en config/setup/ (una sola vez) y config/startup/ (cada arranque).
+    environment:
+      ORACLE_SID: ${ORACLE_SID}
+      ORACLE_PDB: ${ORACLE_PDB}
+      ORACLE_PWD: ${ORACLE_PWD}
+      ORACLE_CHARACTERSET: ${ORACLE_CHARACTERSET}
+      INIT_SGA_SIZE: ${INIT_SGA_SIZE}
+      INIT_PGA_SIZE: ${INIT_PGA_SIZE}
+      ENABLE_ARCHIVELOG: ${ENABLE_ARCHIVELOG:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -S / as sysdba | grep -qw 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 900s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
