@@ -30,3 +30,5 @@ mssql2022/log/
 *.key
 *.crt
 *.p12
+
+.github/
