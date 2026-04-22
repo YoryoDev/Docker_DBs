@@ -124,15 +124,24 @@ En SSMS usa el formato `IP,puerto` (ej: `192.168.79.128,1434`).
 
 ### Init containers
 
-Todos los servicios usan un init container (`busybox`) que crea los directorios `data/`, `backup/`, `log/` y aplica el `chown` correcto antes de que arranque el motor:
+Todos los servicios usan init containers que preparan el entorno antes de que arranque el motor:
 
-| Motor | UID del proceso |
+| Motor | Init containers | Función |
+|---|---|---|
+| SQL Server / PostgreSQL / MySQL / MariaDB / MongoDB | `<servicio>_init` (busybox) | Crea `data/`, `backup/`, `log/` y aplica `chown` |
+| Oracle 19c | `oracle19c_login` → `oracle19c_init` | Login en Oracle Container Registry, luego crea directorios y aplica `chown` |
+
+UIDs de proceso de cada motor:
+
+| Motor | UID |
 |---|---|
 | SQL Server | `10001` (usuario `mssql`) |
 | PostgreSQL / MySQL / MariaDB / MongoDB | `999` |
 | Oracle 19c | `54321` (usuario `oracle`) |
 
 El motor arranca **sin** `user: "0"` — nunca corre como root.
+
+> **Oracle 19c — orden de arranque:** `oracle19c_login` (docker login) → `oracle19c_init` (directorios) → `oracle19c` (motor). Si el login falla, el `up` se detiene antes de intentar descargar la imagen.
 
 ### Bind mounts (no named volumes)
 
@@ -330,6 +339,8 @@ BIND_ADDRESS=127.0.0.1
 
 Cada motor tiene además sus propias credenciales — revisa el `.env.example` correspondiente para ver qué variables configurar.
 
+> **Oracle 19c:** además de las variables de base de datos, `oracle19c/.env` requiere `ORACLE_REGISTRY_USER` y `ORACLE_REGISTRY_PASS` para autenticarse en el Oracle Container Registry. Ver la sección [Nota: Oracle 19c](#nota-oracle-19c-enterprise-edition) para el procedimiento completo.
+
 ---
 
 ## Uso
@@ -520,17 +531,28 @@ SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`).
 
 ## Nota: Oracle 19c Enterprise Edition
 
-### Requisito previo
+### Requisito previo (solo la primera vez)
 
-Antes de poder descargar la imagen, debes aceptar la licencia OTN:
+La imagen de Oracle está en un registry privado que requiere aceptar la licencia OTN y autenticarse. El **login se realiza automáticamente** cada vez que haces `up` — solo tienes que configurar las credenciales en el `.env` del servicio.
 
-1. Crea una cuenta en [container-registry.oracle.com](https://container-registry.oracle.com).
-2. Navega a **Database → enterprise** y acepta la licencia.
-3. Autentícate desde tu máquina:
+1. Crea o inicia sesión en [container-registry.oracle.com](https://container-registry.oracle.com).
+2. Navega a **Database → enterprise** y acepta la licencia OTN.
+3. En el portal ve a tu perfil → **"Auth Token"** → genera una secret key.
+   > Usa la **secret key** como contraseña, **no** la contraseña de tu cuenta SSO.
+4. Rellena estas variables en `oracle19c/.env`:
+
+```env
+ORACLE_REGISTRY_USER=tu-correo@ejemplo.com
+ORACLE_REGISTRY_PASS="tu-secret-key"   # entre comillas si contiene caracteres especiales
+```
+
+5. Ya puedes levantar el servicio normalmente:
 
 ```bash
-docker login container-registry.oracle.com
+docker compose --profile oracle19c up -d
 ```
+
+El init container `oracle19c_login` ejecuta `docker login` antes de que arranquen los demás servicios. Si las credenciales son incorrectas, el `up` fallará antes de intentar descargar la imagen.
 
 ### Primer arranque (~15-20 minutos)
 
