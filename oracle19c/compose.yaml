@@ -1,10 +1,31 @@
 services:
 
+  oracle19c_login:
+    image: docker:cli
+    user: "0"
+    profiles:
+      - oracle19c
+    environment:
+      ORACLE_REGISTRY_USER: ${ORACLE_REGISTRY_USER}
+      ORACLE_REGISTRY_PASS: ${ORACLE_REGISTRY_PASS}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker:/root/.docker
+    command:
+      - sh
+      - -c
+      - |
+        echo "${ORACLE_REGISTRY_PASS}" | docker login container-registry.oracle.com \
+          -u "${ORACLE_REGISTRY_USER}" --password-stdin
+
   oracle19c_init:
     image: busybox:latest
     user: "0"
     profiles:
       - oracle19c
+    depends_on:
+      oracle19c_login:
+        condition: service_completed_successfully
     command:
       - sh
       - -c
