@@ -18,10 +18,18 @@ services:
 
   oracle19c:
     # ─────────────────────────────────────────────────────────────────────
-    # REQUISITO PREVIO — Aceptar la licencia OTN antes de hacer pull:
+    # REQUISITO PREVIO — Aceptar la licencia OTN y hacer login:
     #   1. Inicia sesión en https://container-registry.oracle.com
-    #   2. Navega a Database → enterprise y acepta la licencia.
-    #   3. docker login container-registry.oracle.com
+    #        Usuario : oracle-user  (ver ../.env)
+    #   2. Navega a Database → enterprise y acepta la licencia OTN.
+    #   3. En el portal ve a tu perfil → "Auth Token" y genera una
+    #      secret key (úsala como contraseña, NO la de tu cuenta SSO).
+    #      Guárdala en ../.env como oracle-password='<secret-key>'
+    #   4. Ejecuta el login desde la raíz del proyecto:
+    #        USER=$(grep '^oracle-user' ../.env | cut -d= -f2)
+    #        PASS=$(grep '^oracle-password' ../.env | sed "s/oracle-password='//;s/'.*//")
+    #        echo "${PASS}" | docker login container-registry.oracle.com \
+    #          -u "${USER}" --password-stdin
     # ─────────────────────────────────────────────────────────────────────
     image: container-registry.oracle.com/database/enterprise:19.3.0.0
     container_name: oracle19c
