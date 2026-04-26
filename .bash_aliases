@@ -1,15 +1,19 @@
 # ─── Docker DBs — Bash Aliases ────────────────────────────────────────────────
-# Tras clonar el repo, añade esta línea a tu ~/.bashrc o ~/.bash_profile:
+# 1. Copia este archivo a tu home:
+#       cp .bash_aliases ~/
 #
-#   source /ruta/al/repo/Docker_DBs/.bash-aliases
+# 2. Los aliases cargarán automáticamente en cada sesión y funcionarán
+#    desde cualquier directorio (bash carga ~/.bash_aliases por defecto).
 #
-# El archivo debe permanecer en el repo para que las rutas se resuelvan
-# correctamente sin importar el usuario o la máquina.
+# Requisito para up/down: el repo debe estar en ~/Docker_DBs
+# (convención por defecto). Si lo clonaste en otra ruta, añade esto
+# a tu ~/.bashrc ANTES de que se carguen los aliases:
+#       export DDBS_HOME=/ruta/al/repo/Docker_DBs
 # ──────────────────────────────────────────────────────────────────────────────
 
-# Directorio raíz del repo (se resuelve en el momento del source, sin rutas hardcodeadas)
-_DDBS=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
-
+# Directorio raíz del repo.
+# Por defecto usa ~/Docker_DBs; sobreescribe con: export DDBS_HOME=/otra/ruta
+_DDBS="${DDBS_HOME:-$HOME/Docker_DBs}"  
 # Helper interno: ejecuta docker compose en el subdirectorio de cada proyecto
 # Cada proyecto usa su propio compose.yaml y .env — sin depender del compose.yaml raíz
 # Uso: _ddbs_project <subdir> <profile> <comando...>
@@ -28,7 +32,7 @@ _ddbs_project() {
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Estado de todos los contenedores del proyecto
-ddbs-ps() {
+_ddbs_ps() {
   docker ps -a \
     --filter 'name=mariadb' \
     --filter 'name=mongodb8' \
@@ -40,12 +44,13 @@ ddbs-ps() {
     --filter 'name=postgresql18' \
     --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 }
+alias ddbs-ps='_ddbs_ps'
 
 # Listar imágenes de bases de datos
 alias ddbs-images='docker images | grep -E "mariadb|mongo|mssql|mysql|oracle|postgres"'
 
 # Ayuda: muestra todos los aliases disponibles
-ddbs-help() {
+_ddbs_help() {
   echo ""
   echo "  ╔══════════════════════════════════════════════════════════════════╗"
   echo "  ║              Docker DBs — Aliases disponibles                   ║"
@@ -80,6 +85,7 @@ ddbs-help() {
   echo "  ╚══════════════╩═══════════════════════════════════════════════════╝"
   echo ""
 }
+alias ddbs-help='_ddbs_help'
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MARIADB 11.4  |  container: mariadb  |  puerto: 3307
