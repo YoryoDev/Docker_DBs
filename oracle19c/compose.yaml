@@ -1,3 +1,29 @@
+# =============================================================
+# Oracle 19c — Docker Compose
+#
+# BIND_ADDRESS — Controla la interfaz de red donde se expone el puerto:
+#
+#   127.0.0.1          → Solo acceso local desde esta máquina
+#                        (recomendado para desarrollo local)
+#
+#   <IP-de-tu-PC>      → Acceso desde tu red local (LAN)
+#                        Ej: 192.168.1.100
+#                        Útil si tenés otra PC o dispositivo en la misma
+#                        red que necesita conectarse a esta base de datos.
+#
+#   0.0.0.0            → Todas las interfaces (no recomendado)
+#                        Solo usar si el contenedor está en una VM
+#                        (VMware/VirtualBox) o VPS y necesitás acceso
+#                        remoto desde otra máquina. En este caso,
+#                        asegurate de configurar el firewall del SO
+#                        para filtrar IPs y puertos.
+#
+#   Nota para VMs (VMware/VirtualBox):
+#   Si usás modo "Bridged", el contenedor se ve desde otras máquinas
+#   como un dispositivo más de la red. Usá la IP de la VM.
+#   Si usás modo "NAT", necesitás port forwarding del host a la VM.
+# =============================================================
+
 services:
 
   oracle19c_login:
@@ -62,11 +88,16 @@ services:
     volumes:
       - ./data:/opt/oracle/oradata
       - ./backup:/opt/oracle/backup
+      - ./log:/opt/oracle/diag/rdbms/orclcdb/ORCLCDB/trace
       - ./config/setup:/opt/oracle/scripts/setup:ro
       - ./config/startup:/opt/oracle/scripts/startup:ro
     # Oracle 19c en contenedor se configura por variables de entorno en la
     # creación inicial de la base de datos. Los ajustes post-creación van
     # en config/setup/ (una sola vez) y config/startup/ (cada arranque).
+    #
+    # Nota sobre logs: Los trace files y alert log se guardan en ./log/
+    # para acceso directo desde el host. La ruta dentro del contenedor
+    # depende de ORACLE_SID (por defecto: ORCLCDB).
     environment:
       ORACLE_SID: ${ORACLE_SID}
       ORACLE_PDB: ${ORACLE_PDB}
@@ -76,7 +107,7 @@ services:
       INIT_PGA_SIZE: ${INIT_PGA_SIZE}
       ENABLE_ARCHIVELOG: ${ENABLE_ARCHIVELOG:-false}
     healthcheck:
-      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -S / as sysdba | grep -qw 1"]
+      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -S / as sysdba 2>/dev/null | grep -q 1"]
       interval: 30s
       timeout: 15s
       retries: 5
