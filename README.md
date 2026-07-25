@@ -1,75 +1,133 @@
 # Docker_DBs
 
-Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desarrollo, pruebas y laboratorio en servidor, VM o nube. Cada motor es independiente, con configuración explícita, bind mounts y límites de recursos definidos.
+Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desarrollo, pruebas y laboratorio en cualquier Linux (Debian, Ubuntu, Arch, Fedora, WSL, etc.). Cada motor es independiente, con configuración explícita, bind mounts y límites de recursos definidos.
+
+**Uso**: Los servicios se ejecutan de forma independiente — no todos a la vez — para no consumir recursos innecesarios. Cada usuario levanta solo lo que necesita en cada momento.
+
+---
+
+## Tabla de contenidos
+
+- [Motores](#motores)
+- [Requisitos](#requisitos)
+- [Instalación rápida](#instalación-rápida)
+- [Variable BIND_ADDRESS](#variable-bind_address)
+- [Uso de comandos](#uso-de-comandos)
+- [Conexión desde clientes externos](#conexión-desde-clientes-externos)
+- [Arquitectura interna](#arquitectura-interna)
+- [Límites de recursos](#límites-de-recursos)
+- [Configuración avanzada](#configuración-avanzada)
+- [Gestión de datos](#gestión-de-datos)
+- [Nota: SQL Server y collation personalizada](#nota-sql-server-y-collation-personalizada)
+- [Nota: Oracle 19c Enterprise Edition](#nota-oracle-19c-enterprise-edition)
+
+---
 
 ## Motores
 
-| Servicio | Imagen | Puerto host | Collation / Charset |
-|---|---|---|---|
-| `mssql2025` | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `Latin1_General_100_CI_AS_SC` |
-| `mssql2022` | `mssql/server:2022-CU23-ubuntu-22.04` | `1434` | `Latin1_General_100_CI_AS_SC` |
-| `postgresql18` | `postgres:18.2` | `5432` | — |
-| `postgresql17` | `postgres:17.4` | `5433` | — |
-| `mariadb` | `mariadb:11.4.10` | `3307` | `utf8mb4_unicode_ci` |
-| `mysql` | `mysql:8.4.8` | `3306` | `utf8mb4_unicode_ci` |
-| `mongodb` | `mongo:8.0.20` | `27017` | — |
-| `oracle19c` | `enterprise:19.3.0.0` | `1521` / `5500` | `AL32UTF8` |
+| Servicio | Motor | Imagen | Puerto host | Collation / Charset |
+|---|---|---|---|---|
+| `mssql2025` | SQL Server 2025 | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `Latin1_General_100_CI_AS_SC` |
+| `mssql2022` | SQL Server 2022 | `mssql/server:2022-CU23-ubuntu-22.04` | `1434` | `Latin1_General_100_CI_AS_SC` |
+| `postgresql18` | PostgreSQL 18.2 | `postgres:18.2` | `5432` | — |
+| `postgresql17` | PostgreSQL 17.4 LTS | `postgres:17.4` | `5433` | — |
+| `mysql` | MySQL 8.4.8 LTS | `mysql:8.4.8` | `3306` | `utf8mb4_unicode_ci` |
+| `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `utf8mb4_unicode_ci` |
+| `mongodb` | MongoDB 8.0.20 | `mongo:8.0.20` | `27017` | — |
+| `oracle19c` | Oracle 19c EE | `enterprise:19.3.0.0` | `1521` / `5500` | `AL32UTF8` |
 
 ---
 
 ## Requisitos
 
-- Docker Engine >= 24
-- Docker Compose >= 2.20
+- [Docker Engine](https://docs.docker.com/engine/install/) >= 24
+- [Docker Compose](https://docs.docker.com/compose/install/) >= 2.20 (incluido en Docker Desktop)
 - Git
 
 ---
 
-## Instalación
+## Instalación rápida
 
 ```bash
-git clone <url> Docker_DBs && cd Docker_DBs
+# 1. Clonar el repositorio
+git clone <url-del-repositorio> Docker_DBs
+cd Docker_DBs
 
-# Copia y edita solo los servicios que vayas a usar
-cp mssql2025/.env.example  mssql2025/.env
-cp mssql2022/.env.example  mssql2022/.env
+# 2. Copiar los .env.example a .env (solo los servicios que vayas a usar)
 cp postgresql18/.env.example postgresql18/.env
-cp postgresql17/.env.example postgresql17/.env
-cp mariadb/.env.example    mariadb/.env
-cp mysql/.env.example      mysql/.env
-cp mongodb/.env.example    mongodb/.env
-cp oracle19c/.env.example  oracle19c/.env
+cp mysql/.env.example        mysql/.env
+cp mariadb/.env.example      mariadb/.env
+cp mongodb/.env.example      mongodb/.env
+cp mssql2025/.env.example    mssql2025/.env
+cp mssql2022/.env.example    mssql2022/.env
+cp oracle19c/.env.example    oracle19c/.env
+
+# 3. Editar credenciales en cada .env (opcional, los defaults funcionan)
+nano postgresql18/.env
+
+# 4. Levantar el servicio que necesites
+docker compose --profile postgresql18 up -d
 ```
 
-### Variable `BIND_ADDRESS`
+---
 
-Controla en qué interfaz se expone cada puerto:
+## Variable `BIND_ADDRESS`
 
+Controla en qué interfaz de red se expone el puerto de cada servicio. Todos los `.env.example` ya vienen con `127.0.0.1` como valor por defecto.
+
+### Valores disponibles
+
+| Valor | Uso | Cuándo usarlo |
+|---|---|---|
+| `127.0.0.1` | Solo acceso local desde esta máquina | **Desarrollo local** (recomendado por defecto) |
+| `<IP-de-tu-PC>` | Acceso desde tu red local (LAN) | Cuando otra PC o dispositivo en la misma red necesita conectarse. Ej: `192.168.1.100` |
+| `0.0.0.0` | Todas las interfaces | Solo en **VMs (VMware/VirtualBox)** o **VPS** que necesiten acceso remoto |
+
+### Escenarios de uso
+
+**PC o laptop local (recomendado):**
 ```env
-BIND_ADDRESS=127.0.0.1       # solo acceso local (recomendado por defecto)
-BIND_ADDRESS=192.168.1.10    # acceso desde la red local
-BIND_ADDRESS=0.0.0.0         # todas las interfaces (no recomendado)
+BIND_ADDRESS=127.0.0.1
 ```
+Los servicios solo son accesibles desde la misma máquina. Seguro por defecto.
+
+**Red local (LAN):**
+```env
+BIND_ADDRESS=192.168.1.100
+```
+Usá la IP de tu PC en la red local. Permite que otras máquinas en la misma LAN se conecten.
+
+**VMware / VirtualBox (modo Bridged):**
+```env
+BIND_ADDRESS=192.168.1.50
+```
+Si la VM usa modo **Bridged**, el contenedor se ve como un dispositivo más de la red. Usá la IP de la VM.
+
+**VMware / VirtualBox (modo NAT):**
+```env
+BIND_ADDRESS=0.0.0.0
+```
+Si la VM usa modo **NAT**, necesitás configurar **port forwarding** del host a la VM en VirtualBox/VMware, o usar `0.0.0.0` para exponer en todas las interfaces de la VM.
+
+**VPS o servidor remoto:**
+```env
+BIND_ADDRESS=0.0.0.0
+```
+Si el contenedor corre en un VPS y necesitás acceso remoto. **Importante**: configurá el firewall del SO para filtrar IPs y puertos.
 
 ---
 
 ## Uso de comandos
 
-| Comando | Cuándo usarlo |
-|---|---|
-| `up` | Primera vez o tras un `down`. Crea el contenedor y lo arranca. |
-| `start` | Uso diario. Reanuda un contenedor parado con `stop`. |
-| `stop` | Uso diario. Pausa el contenedor sin eliminarlo ni tocar datos. |
-| `down` | Cuando necesites recrear el contenedor (cambio de config, nueva imagen). Elimina el contenedor pero **no los datos**. |
-| `pull` | Antes de actualizar. Descarga la nueva imagen sin afectar el contenedor activo. |
-| `logs` | Diagnóstico. Muestra los logs en tiempo real. |
-| `shell` | Acceso directo al cliente del motor dentro del contenedor. |
-
 ### Con aliases (`~/.bash_aliases`)
 
 ```bash
+# Copiar aliases al home
+cp .bash_aliases ~/
+
 # Primera vez
 mssql25-up
+pg18-up
 
 # Operación diaria
 mssql25-stop
@@ -82,41 +140,82 @@ mssql25-down
 mssql25-up
 
 # Estado global
-dbs-ps
-dbs-help   # cheatsheet completo
+ddbs-ps
+ddbs-help   # cheatsheet completo
 ```
 
 ### Con Docker Compose directo (desde la raíz)
 
 ```bash
+# Levantar un servicio
+docker compose --profile postgresql18 up -d
+docker compose --profile mysql up -d
+docker compose --profile mariadb up -d
+docker compose --profile mongodb up -d
 docker compose --profile mssql2025 up -d
-docker compose --profile mssql2025 start
-docker compose --profile mssql2025 stop
-docker compose --profile mssql2025 down
-docker compose --profile mssql2025 logs -f
+docker compose --profile mssql2022 up -d
+docker compose --profile oracle19c up -d
+
+# Levantar varios servicios a la vez
+docker compose --profile postgresql18 --profile mysql up -d
+
+# Levantar todos los servicios (⚠ consume muchos recursos)
+docker compose \
+  --profile postgresql18 \
+  --profile postgresql17 \
+  --profile mysql \
+  --profile mariadb \
+  --profile mongodb \
+  --profile mssql2025 \
+  --profile mssql2022 \
+  --profile oracle19c \
+  up -d
 ```
 
-### Levantar varios servicios a la vez
+### Operaciones de contenedor
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `up` | Primera vez o tras un `down`. Crea el contenedor y lo arranca. |
+| `start` | Uso diario. Reanuda un contenedor parado con `stop`. |
+| `stop` | Uso diario. Pausa el contenedor sin eliminarlo ni tocar datos. |
+| `down` | Recrea el contenedor (cambio de config, nueva imagen). Elimina el contenedor pero **no los datos**. |
+| `down -v` | Elimina el contenedor **y sus volúmenes** (⚠ borra todos los datos). |
+| `pull` | Descarga la nueva imagen sin afectar el contenedor activo. |
+| `logs -f` | Muestra los logs en tiempo real. |
+| `restart` | Reinicia el contenedor (aplica cambios de configuración). |
+
+### Estado de los contenedores
 
 ```bash
-docker compose --profile mssql2025 --profile mssql2022 up -d
+# Ver todos los contenedores del proyecto (activos e inactivos)
+docker compose ps -a
+
+# Ver solo los activos
+docker compose ps
+
+# Ver estado con health checks
+docker ps --format "table {{.Names}}\t{{.Status}}"
 ```
 
 ---
 
 ## Conexión desde clientes externos (SSMS, DBeaver, DataGrip)
 
-| Motor | Host | Puerto | Usuario |
-|---|---|---|---|
-| SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` |
-| SQL Server 2022 | `BIND_ADDRESS` | `1434` | `sa` |
-| PostgreSQL 18 | `BIND_ADDRESS` | `5432` | `POSTGRES_USER` |
-| PostgreSQL 17 | `BIND_ADDRESS` | `5433` | `POSTGRES_USER` |
-| MySQL 8 | `BIND_ADDRESS` | `3306` | `MYSQL_USER` / `root` |
-| MariaDB 11 | `BIND_ADDRESS` | `3307` | `MARIADB_USER` / `root` |
-| MongoDB 8 | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` |
+| Motor | Host | Puerto | Usuario | Notas |
+|---|---|---|---|---|
+| SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` | Collation: `Latin1_General_100_CI_AS_SC` |
+| SQL Server 2022 | `BIND_ADDRESS` | `1434` | `sa` | Puerto 1434 para no colisionar con 2025 |
+| PostgreSQL 18 | `BIND_ADDRESS` | `5432` | `POSTGRES_USER` | — |
+| PostgreSQL 17 | `BIND_ADDRESS` | `5433` | `POSTGRES_USER` | — |
+| MySQL 8 | `BIND_ADDRESS` | `3306` | `MYSQL_USER` / `root` | — |
+| MariaDB 11 | `BIND_ADDRESS` | `3307` | `MARIADB_USER` / `root` | Puerto 3307 para no colisionar con MySQL |
+| MongoDB 8 | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` | Auth habilitado |
+| Oracle 19c | `BIND_ADDRESS` | `1521` | `sys` / `system` / `pdbadmin` | SID: `ORCLCDB`, PDB: `ORCLPDB1` |
 
-En SSMS usa el formato `IP,puerto` (ej: `192.168.79.128,1434`).
+> **SSMS**: Usá el formato `IP,puerto` (ej: `192.168.1.100,1434`).
+
+> **Oracle OEM Express**: `https://BIND_ADDRESS:5500/em`
 
 ---
 
@@ -128,20 +227,18 @@ Todos los servicios usan init containers que preparan el entorno antes de que ar
 
 | Motor | Init containers | Función |
 |---|---|---|
-| SQL Server / PostgreSQL / MySQL / MariaDB / MongoDB | `<servicio>_init` (busybox) | Crea `data/`, `backup/`, `log/` y aplica `chown` |
+| SQL Server / PostgreSQL / MySQL / MariaDB / MongoDB | `<servicio>_init` (busybox) | Crea `data/`, `backup/`, `log/` y aplica `chown` al UID del motor |
 | Oracle 19c | `oracle19c_login` → `oracle19c_init` | Login en Oracle Container Registry, luego crea directorios y aplica `chown` |
 
-UIDs de proceso de cada motor:
+El motor arranca **sin** `user: "0"` — nunca corre como root.
+
+### UIDs de proceso
 
 | Motor | UID |
 |---|---|
 | SQL Server | `10001` (usuario `mssql`) |
 | PostgreSQL / MySQL / MariaDB / MongoDB | `999` |
 | Oracle 19c | `54321` (usuario `oracle`) |
-
-El motor arranca **sin** `user: "0"` — nunca corre como root.
-
-> **Oracle 19c — orden de arranque:** `oracle19c_login` (docker login) → `oracle19c_init` (directorios) → `oracle19c` (motor). Si el login falla, el `up` se detiene antes de intentar descargar la imagen.
 
 ### Bind mounts (no named volumes)
 
@@ -158,318 +255,81 @@ Los datos viven en carpetas locales del host, lo que permite:
 └── config/    ← archivos de configuración (montados :ro)
 ```
 
-### Límites de recursos
+> **PostgreSQL**: Los datos se montan en `/var/lib/postgresql/data` (no el directorio padre).
 
-Todos los servicios tienen `deploy.resources` configurado:
+> **Oracle 19c**: Los logs se montan en `/opt/oracle/diag/rdbms/orclcdb/ORCLCDB/trace` para acceso directo desde el host.
+
+---
+
+## Límites de recursos
+
+Todos los servicios tienen `deploy.resources` configurado. Los servicios se ejecutan de forma independiente, no todos a la vez.
+
+### Container limits
 
 | Motor | RAM límite | RAM reservada | CPU límite |
 |---|---|---|---|
-| SQL Server (ambos) | 1.2 GB | 256 MB | 1.5 |
-| PostgreSQL (ambos) | 1.5 GB | 256 MB | 1.5 |
-| MySQL / MariaDB | 1.5 GB | 256 MB | 1.5 |
-| MongoDB | 1.0 GB | 256 MB | 1.0 |
+| SQL Server 2025 | 1.2 GB | 256 MB | 1.5 |
+| SQL Server 2022 | 1.2 GB | 256 MB | 1.5 |
+| PostgreSQL 18 | 1.5 GB | 256 MB | 1.5 |
+| PostgreSQL 17 | 1.5 GB | 256 MB | 1.5 |
+| MySQL 8.4 | 1.5 GB | 256 MB | 1.5 |
+| MariaDB 11.4 | 1.5 GB | 256 MB | 1.5 |
+| MongoDB 8.0 | 1.0 GB | 256 MB | 1.0 |
 | Oracle 19c | 2.0 GB | 512 MB | 2.0 |
 
-Además, SQL Server tiene `memorylimitmb = 900` en `mssql.conf` para limitar el motor internamente.
-Oracle 19c tiene `INIT_SGA_SIZE=768` y `INIT_PGA_SIZE=256` (total 1024 MB para el engine).
+### Configuración interna de memoria
 
-### Health checks
+| Motor | Parámetro | Valor | Descripción |
+|---|---|---|---|
+| SQL Server (ambos) | `memorylimitmb` | 1000 MB | Límite interno del motor (~83% del container limit) |
+| PostgreSQL (ambos) | `shared_buffers` | 375 MB | ~25% de 1.5 GB (cache de datos compartidos) |
+| PostgreSQL (ambos) | `effective_cache_size` | 1100 MB | ~75% de 1.5 GB (pista al planner) |
+| MySQL 8.4 | `innodb_buffer_pool_size` | 256 MB | ~17% de 1.5 GB |
+| MariaDB 11.4 | `innodb_buffer_pool_size` | 256 MB | ~17% de 1.5 GB |
+| MongoDB 8.0 | `cacheSizeGB` | 0.5 GB | ~50% de 1.0 GB (WiredTiger cache) |
+| Oracle 19c | `INIT_SGA_SIZE` | 768 MB | SGA del motor |
+| Oracle 19c | `INIT_PGA_SIZE` | 256 MB | PGA del motor |
+| Oracle 19c | **Total engine** | 1024 MB | ~50% de 2.0 GB |
 
-Todos los servicios tienen health check configurado. Verificar estado:
+### Reglas para ajustar memoria
 
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}"
-# o
-dbs-ps-healthy
-```
+Si cambiás el límite de RAM del contenedor, ajustá la configuración interna según estas reglas:
 
-### Política de reinicio
-
-Todos los servicios tienen `restart: no` — **no arrancan automáticamente** al iniciar Docker o el host. Para cambiar el comportamiento de un servicio edita su `compose.yaml`:
-
-```yaml
-restart: unless-stopped   # arranca con Docker, excepto si fue detenido manualmente
-```
+| Motor | Parámetro | Fórmula |
+|---|---|---|
+| PostgreSQL | `shared_buffers` | ~25% de la RAM del contenedor |
+| PostgreSQL | `effective_cache_size` | ~75% de la RAM del contenedor |
+| SQL Server | `memorylimitmb` | ~80-85% del container limit (dejar ~200MB para OS) |
+| MySQL / MariaDB | `innodb_buffer_pool_size` | ~25% de la RAM del contenedor |
+| MongoDB | `cacheSizeGB` | ~50% de la RAM del contenedor |
+| Oracle | `INIT_SGA_SIZE` + `INIT_PGA_SIZE` | ~50% de la RAM del contenedor |
 
 ---
 
 ## Configuración avanzada
 
-Edita el archivo de configuración correspondiente y reinicia el contenedor:
+Los archivos de configuración de cada motor se encuentran en `<servicio>/config/` y se montan como volúmenes de solo lectura (`:ro`) dentro del contenedor:
 
 | Motor | Archivo | Parámetros clave |
 |---|---|---|
 | SQL Server | `mssql.conf` | `memorylimitmb`, `tlsprotocols`, `forceencryption` |
-| PostgreSQL | `postgresql.conf` / `pg_hba.conf` | `shared_buffers`, `max_connections`, autenticación |
+| PostgreSQL | `postgresql.conf` | `shared_buffers`, `effective_cache_size`, `max_connections`, autovacuum |
+| PostgreSQL | `pg_hba.conf` | Reglas de autenticación por host |
 | MySQL | `my.cnf` | `innodb_buffer_pool_size`, `max_connections`, binary log |
-| MariaDB | `my.cnf` | Igual que MySQL + parámetros Aria |
-| MongoDB | `mongod.conf` | `wiredTiger`, `net.tls`, `operationProfiling` |
+| MariaDB | `my.cnf` | Igual a MySQL + parámetros Aria |
+| MongoDB | `mongod.conf` | `wiredTiger.cacheSizeGB`, `net.tls`, `operationProfiling` |
+| Oracle 19c | `config/setup/*.sql` | Scripts post-creación (una sola vez) |
+| Oracle 19c | `config/startup/*.sql` | Scripts post-arranque (cada inicio) |
+
+### Aplicar cambios de configuración
 
 ```bash
-# Aplicar cambios de configuración
+# Después de editar el archivo de config correspondiente
 docker compose --profile postgresql18 restart
+docker compose --profile mysql restart
+docker compose --profile mssql2025 restart
 ```
-
----
-
-## Gestión de datos
-
-```bash
-# Espacio usado por un servicio
-du -sh ~/Docker_DBs/postgresql18/data/
-
-# Destruir y recrear desde cero (⚠ borra todos los datos)
-docker compose --profile postgresql18 down
-rm -rf ~/Docker_DBs/postgresql18/data/
-docker compose --profile postgresql18 up -d
-```
-
----
-
-## Nota: SQL Server y primera ejecución con collation personalizada
-
-SQL Server 2022 con `Latin1_General_100_CI_AS_SC` (distinto al default) realiza un restart interno al primer arranque. El `start_period` del health check está fijado en **300s** para evitar falsos negativos. SQL Server 2025 tiene `start_period: 60s`.
-
-
-## Motores incluidos
-
-| Servicio | Motor | Imagen | Puerto host | Perfil |
-|---|---|---|---|---|
-| `mssql2025` | SQL Server 2025 | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `mssql2025` |
-| `mssql2022` | SQL Server 2022 | `mssql/server:2022-CU23-ubuntu-22.04` | `1434` | `mssql2022` |
-| `postgresql18` | PostgreSQL 18.2 | `postgres:18.2` | `5432` | `postgresql18` |
-| `postgresql17` | PostgreSQL 17.4 LTS | `postgres:17.4` | `5433` | `postgresql17` |
-| `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `mariadb` |
-| `mysql` | MySQL 8.4.8 LTS | `mysql:8.4.8` | `3306` | `mysql` |
-| `mongodb` | MongoDB 8.0.20 | `mongo:8.0.20` | `27017` | `mongodb` |
-| `oracle19c` | Oracle 19c EE | `enterprise:19.3.0.0` | `1521` / `5500` | `oracle19c` |
-
----
-
-## Requisitos previos
-
-- [Docker Engine](https://docs.docker.com/engine/install/) >= 24
-- [Docker Compose](https://docs.docker.com/compose/install/) >= 2.20 (incluido en Docker Desktop)
-- Git
-
----
-
-## Estructura del repositorio
-
-```
-Docker_DBs/
-├── compose.yaml          ← orquestador raíz (include + profiles)
-├── mssql2025/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       └── mssql.conf
-├── mssql2022/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       └── mssql.conf
-├── postgresql18/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       ├── postgresql.conf
-│       └── pg_hba.conf
-├── postgresql17/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       ├── postgresql.conf
-│       └── pg_hba.conf
-├── mariadb/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       └── my.cnf
-├── mongodb/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       └── mongod.conf
-└── oracle19c/
-    ├── compose.yaml
-    ├── .env.example
-    └── config/
-        ├── setup/       ← scripts post-creación (una sola vez)
-        └── startup/     ← scripts post-arranque (cada inicio)
-```
-
----
-
-## Instalación y configuración inicial
-
-### 1. Clonar el repositorio
-
-```bash
-git clone <url-del-repositorio> Docker_DBs
-cd Docker_DBs
-```
-
-### 2. Crear archivos `.env` a partir de los ejemplos
-
-Cada servicio tiene su propio `.env.example`. Copia y edita solo los que vayas a usar:
-
-```bash
-# Ejemplos — repite para cada servicio que necesites
-cp postgresql18/.env.example postgresql18/.env
-cp mysql/.env.example        mysql/.env
-cp mariadb/.env.example      mariadb/.env
-cp mongodb/.env.example      mongodb/.env
-cp mssql2025/.env.example     mssql2025/.env
-cp mssql2022/.env.example     mssql2022/.env
-cp oracle19c/.env.example     oracle19c/.env
-```
-
-### 3. Editar el `.env` de cada servicio
-
-Variables comunes en todos los `.env`:
-
-```env
-# IP de la interfaz del servidor/VM por donde se expondrá el puerto.
-# 127.0.0.1 → solo acceso local (valor por defecto, recomendado).
-# Cambia a la IP de tu servidor (p. ej. 192.168.1.10) para acceso remoto en tu red.
-# Usa 0.0.0.0 solo si necesitas exponer en todas las interfaces (no recomendado).
-BIND_ADDRESS=127.0.0.1
-```
-
-Cada motor tiene además sus propias credenciales — revisa el `.env.example` correspondiente para ver qué variables configurar.
-
-> **Oracle 19c:** además de las variables de base de datos, `oracle19c/.env` requiere `ORACLE_REGISTRY_USER` y `ORACLE_REGISTRY_PASS` para autenticarse en el Oracle Container Registry. Ver la sección [Nota: Oracle 19c](#nota-oracle-19c-enterprise-edition) para el procedimiento completo.
-
----
-
-## Uso
-
-Todos los comandos se ejecutan desde la **raíz del repositorio** usando perfiles para seleccionar el servicio. También puedes entrar a la carpeta de cada servicio y ejecutar `docker compose` directamente.
-
-### Política de reinicio (`restart`)
-
-Todos los servicios tienen configurado `restart: no` — el contenedor **no se inicia automáticamente** cuando arranca el host o el daemon de Docker. Así decides tú qué servicios levantar en cada momento.
-
-Si quieres que un servicio arranque automáticamente al encender la VM o el servidor, cambia esa línea en el `compose.yaml` del servicio correspondiente:
-
-```yaml
-# Solo se inicia manualmente — valor por defecto en este repo
-restart: no
-
-# Se reinicia automáticamente salvo que lo hayas detenido tú con `docker stop`
-restart: unless-stopped
-```
-
-| Valor | Comportamiento |
-|---|---|
-| `no` | No se reinicia nunca de forma automática |
-| `unless-stopped` | Se reinicia al arrancar Docker/host, excepto si fue detenido manualmente |
-| `always` | Se reinicia siempre, incluso si fue detenido manualmente |
-| `on-failure` | Solo se reinicia si el proceso termina con error |
-
-### Levantar un servicio
-
-```bash
-docker compose --profile postgresql18 up -d
-docker compose --profile mysql up -d
-docker compose --profile mariadb up -d
-docker compose --profile mongodb up -d
-docker compose --profile mssql2025 up -d
-docker compose --profile mssql2022 up -d
-docker compose --profile oracle19c up -d
-```
-
-### Levantar varios servicios a la vez
-
-```bash
-docker compose --profile postgresql18 --profile mysql up -d
-```
-
-### Levantar todos los servicios
-
-```bash
-docker compose \
-  --profile postgresql18 \
-  --profile mysql \
-  --profile mariadb \
-  --profile mongodb \
-  --profile mssql2025 \
-  --profile mssql2022 \
-  --profile oracle19c \
-  up -d
-```
-
-### Detener un servicio (sin eliminar datos)
-
-```bash
-docker compose --profile postgresql18 stop
-```
-
-### Detener y eliminar el contenedor (los volúmenes se conservan)
-
-```bash
-docker compose --profile postgresql18 down
-```
-
-### Eliminar el contenedor **y sus volúmenes** (⚠ borra todos los datos)
-
-```bash
-docker compose --profile postgresql18 down -v
-```
-
----
-
-## Logs
-
-### Ver logs en tiempo real de un servicio
-
-```bash
-docker compose --profile postgresql18 logs -f
-```
-
-### Ver las últimas N líneas
-
-```bash
-docker compose --profile postgresql18 logs --tail=100
-```
-
-### Ver logs de un contenedor directamente
-
-```bash
-docker logs -f postgresql18
-docker logs -f mysql8
-docker logs -f mariadb
-docker logs -f mongodb8
-docker logs -f sqlserver25
-docker logs -f oracle19c
-```
-
----
-
-## Estado de los contenedores
-
-```bash
-# Ver todos los contenedores del proyecto (activos e inactivos)
-docker compose ps -a
-
-# Ver solo los activos
-docker compose ps
-```
-
----
-
-## Actualizar una imagen
-
-```bash
-# 1. Descargar la nueva imagen
-docker compose --profile postgresql18 pull
-
-# 2. Recrear el contenedor con la nueva imagen
-docker compose --profile postgresql18 up -d
-```
-
-> Recuerda actualizar primero el tag de la imagen en el `compose.yaml` del servicio antes de hacer pull, para tener control explícito de la versión.
 
 ---
 
@@ -484,56 +344,53 @@ du -sh ~/Docker_DBs/postgresql18/data/
 # Eliminar los datos de un servicio (⚠ borra todo)
 docker compose --profile postgresql18 down
 rm -rf ~/Docker_DBs/postgresql18/data/
+docker compose --profile postgresql18 up -d
 ```
 
----
-
-## Conexión a las bases de datos
-
-| Motor | Host | Puerto | Usuario | Notas |
-|---|---|---|---|---|
-| PostgreSQL | `BIND_ADDRESS` | `5432` | `POSTGRES_USER` | — |
-| MySQL | `BIND_ADDRESS` | `3306` | `MYSQL_USER` / `root` | — |
-| MariaDB | `BIND_ADDRESS` | `3307` | `MARIADB_USER` / `root` | Puerto 3307 para no colisionar con MySQL |
-| MongoDB | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` | Auth habilitado |
-| SQL Server 2025 | `BIND_ADDRESS` | `1433` | `sa` | Collation: `Latin1_General_100_CI_AS_SC` |
-| SQL Server 2022 | `BIND_ADDRESS` | `1434` | `sa` | Puerto 1434 para no colisionar con SQL Server 2025 |
-| Oracle 19c | `BIND_ADDRESS` | `1521` | `sys` / `system` / `pdbadmin` | SID: `ORCLCDB`, PDB: `ORCLPDB1`, OEM Express: puerto `5500` |
-
----
-
-## Configuración avanzada
-
-Los archivos de configuración de cada motor se encuentran en `<servicio>/config/` y se montan como volúmenes de solo lectura (`:ro`) dentro del contenedor:
-
-| Motor | Archivo | Descripción |
-|---|---|---|
-| PostgreSQL | `postgresql.conf` | Memoria, WAL, planner, logging, autovacuum |
-| PostgreSQL | `pg_hba.conf` | Reglas de autenticación por host |
-| MySQL | `my.cnf` | InnoDB, conexiones, binary log, slow query |
-| MariaDB | `my.cnf` | Igual a MySQL + ajustes específicos de MariaDB |
-| MongoDB | `mongod.conf` | WiredTiger, red, TLS, profiler |
-| SQL Server | `mssql.conf` | Puerto, TLS, memoria, rutas de archivos |
-| Oracle 19c | `config/setup/*.sql` | Scripts post-creación (una sola vez) |
-| Oracle 19c | `config/startup/*.sql` | Scripts post-arranque (cada inicio) |
-
-Edita el archivo correspondiente y reinicia el contenedor para aplicar los cambios:
+### Actualizar una imagen
 
 ```bash
-docker compose --profile postgresql18 restart
+# 1. Actualizar el tag de la imagen en compose.yaml (control explícito de versión)
+
+# 2. Descargar la nueva imagen
+docker compose --profile postgresql18 pull
+
+# 3. Recrear el contenedor con la nueva imagen
+docker compose --profile postgresql18 up -d
 ```
 
 ---
 
-## Nota: SQL Server y permisos de directorio
+## Política de reinicio
+
+Todos los servicios tienen `restart: no` — **no arrancan automáticamente** al iniciar Docker o el host. Así decidís vos qué servicios levantar en cada momento.
+
+Para cambiar el comportamiento de un servicio, edita su `compose.yaml`:
+
+| Valor | Comportamiento |
+|---|---|
+| `no` | No se reinicia nunca de forma automática (default) |
+| `unless-stopped` | Se reinicia al arrancar Docker/host, excepto si fue detenido manualmente |
+| `always` | Se reinicia siempre, incluso si fue detenido manualmente |
+| `on-failure` | Solo se reinicia si el proceso termina con error |
+
+---
+
+## Nota: SQL Server y collation personalizada
+
+SQL Server 2022 con `Latin1_General_100_CI_AS_SC` (distinto al default) realiza un restart interno al primer arranque. El `start_period` del health check está fijado en **300s** para evitar falsos negativos. SQL Server 2025 tiene `start_period: 60s`.
+
+### SQL Server y permisos de directorio
 
 SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que crea los directorios locales (`data/`, `backup/`, `jobs/`, `log/`) y les aplica `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
+
+---
 
 ## Nota: Oracle 19c Enterprise Edition
 
 ### Requisito previo (solo la primera vez)
 
-La imagen de Oracle está en un registry privado que requiere aceptar la licencia OTN y autenticarse. El **login se realiza automáticamente** cada vez que haces `up` — solo tienes que configurar las credenciales en el `.env` del servicio.
+La imagen de Oracle está en un registry privado que requiere aceptar la licencia OTN y autenticarse. El **login se realiza automáticamente** cada vez que haces `up` — solo tenés que configurar las credenciales en el `.env` del servicio.
 
 1. Crea o inicia sesión en [container-registry.oracle.com](https://container-registry.oracle.com).
 2. Navega a **Database → enterprise** y acepta la licencia OTN.
@@ -546,7 +403,7 @@ ORACLE_REGISTRY_USER=tu-correo@ejemplo.com
 ORACLE_REGISTRY_PASS="tu-secret-key"   # entre comillas si contiene caracteres especiales
 ```
 
-5. Ya puedes levantar el servicio normalmente:
+5. Ya podés levantar el servicio normalmente:
 
 ```bash
 docker compose --profile oracle19c up -d
@@ -603,4 +460,55 @@ docker exec oracle19c /home/oracle/shutDown.sh
 docker exec oracle19c /home/oracle/startUp.sh
 ```
 
+---
 
+## Estructura del repositorio
+
+```
+Docker_DBs/
+├── compose.yaml              ← orquestador raíz (include de todos los servicios)
+├── .bash_aliases             ← aliases para operación rápida
+├── mssql2025/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       └── mssql.conf
+├── mssql2022/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       └── mssql.conf
+├── postgresql18/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       ├── postgresql.conf
+│       └── pg_hba.conf
+├── postgresql17/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       ├── postgresql.conf
+│       └── pg_hba.conf
+├── mysql/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       └── my.cnf
+├── mariadb/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       └── my.cnf
+├── mongodb/
+│   ├── compose.yaml
+│   ├── .env.example
+│   └── config/
+│       └── mongod.conf
+└── oracle19c/
+    ├── compose.yaml
+    ├── .env.example
+    └── config/
+        ├── setup/       ← scripts post-creación (una sola vez)
+        └── startup/     ← scripts post-arranque (cada inicio)
+```
