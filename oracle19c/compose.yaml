@@ -41,8 +41,8 @@ services:
       - sh
       - -c
       - |
-        echo "${ORACLE_REGISTRY_PASS}" | docker login container-registry.oracle.com \
-          -u "${ORACLE_REGISTRY_USER}" --password-stdin
+        echo "$$ORACLE_REGISTRY_PASS" | docker login container-registry.oracle.com \
+          -u "$$ORACLE_REGISTRY_USER" --password-stdin
 
   oracle19c_init:
     image: busybox:latest
