@@ -119,14 +119,47 @@ Si el contenedor corre en un VPS y necesitás acceso remoto. **Importante**: con
 
 ## Uso de comandos
 
-### Con aliases (`~/.bash_aliases`)
+### Con aliases
 
-> **Nota:** Los aliases usan bash. En Windows, usá una terminal WSL2 o Git Bash.
+El repo incluye aliases para **Bash**, **PowerShell** y **Fish**. Elegí el que uses:
+
+#### Bash / Zsh (Linux, macOS, WSL2, Git Bash)
 
 ```bash
-# Copiar aliases al home
+# Copiar aliases al home (se carga automáticamente en cada sesión)
 cp .bash_aliases ~/
+```
 
+#### PowerShell 7+ (Windows)
+
+```powershell
+# Crear directorio de módulos si no existe
+New-Item -ItemType Directory -Force -Path "$HOME\Documents\PowerShell\Modules\DockerDBs"
+
+# Copiar el módulo
+Copy-Item .\DockerDBs.psm1 "$HOME\Documents\PowerShell\Modules\DockerDBs\"
+
+# Importar en la sesión actual
+Import-Module DockerDBs
+
+# Para que cargue automáticamente, agregar a tu profile.ps1:
+#   notepad "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+# Agregar: Import-Module DockerDBs
+```
+
+#### Fish (Linux)
+
+```fish
+# Copiar aliases a conf.d (se carga automáticamente)
+cp docker_dbs.fish ~/.config/fish/conf.d/
+
+# Recargar la sesión actual
+source ~/.config/fish/conf.d/docker_dbs.fish
+```
+
+#### Uso (igual para las 3 shells)
+
+```bash
 # Primera vez
 mssql25-up
 pg18-up
@@ -137,7 +170,6 @@ mssql25-start
 
 # Actualizar versión
 mssql25-stop
-mssql25-pull
 mssql25-down
 mssql25-up
 
@@ -145,6 +177,19 @@ mssql25-up
 ddbs-ps
 ddbs-help   # cheatsheet completo
 ```
+
+> **Nota:** Si clonaste el repo en una ruta diferente a `~/Docker_DBs`, definí
+> la variable antes de cargar los aliases:
+> ```bash
+> # Bash/Zsh
+> export DDBS_HOME=/ruta/al/repo/Docker_DBs
+>
+> # PowerShell
+> $env:DDBS_HOME = "C:\ruta\al\repo\Docker_DBs"
+>
+> # Fish
+> set -gx DDBS_HOME /ruta/al/repo/Docker_DBs
+> ```
 
 ### Con Docker Compose directo (desde la raíz)
 
@@ -463,7 +508,9 @@ docker exec oracle19c /home/oracle/startUp.sh
 ```
 Docker_DBs/
 ├── compose.yaml              ← orquestador raíz (include de todos los servicios)
-├── .bash_aliases             ← aliases para operación rápida
+├── .bash_aliases             ← aliases para Bash/Zsh
+├── DockerDBs.psm1            ← aliases para PowerShell 7+
+├── docker_dbs.fish           ← aliases para Fish
 ├── mssql2025/
 │   ├── compose.yaml
 │   ├── .env.example

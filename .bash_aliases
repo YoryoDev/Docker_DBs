@@ -1,9 +1,9 @@
 # ─── Docker DBs — Bash Aliases ────────────────────────────────────────────────
-# 1. Copia este archivo a tu home:
-#       cp .bash_aliases ~/
+# INSTALACIÓN:
+#   1. Copia este archivo a tu home:
+#        cp .bash_aliases ~/
 #
-# 2. Los aliases cargarán automáticamente en cada sesión y funcionarán
-#    desde cualquier directorio (bash carga ~/.bash_aliases por defecto).
+#   2. Los aliases cargarán automáticamente en cada sesión.
 #
 # Requisito para up/down: el repo debe estar en ~/Docker_DBs
 # (convención por defecto). Si lo clonaste en otra ruta, añade esto
