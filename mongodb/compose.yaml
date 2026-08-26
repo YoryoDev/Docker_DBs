@@ -38,9 +38,9 @@ services:
         mkdir -p /mnt/data /mnt/backup /mnt/log
         chown -R 999:999 /mnt/data /mnt/backup /mnt/log
     volumes:
-      - ./data:/mnt/data
-      - ./backup:/mnt/backup
-      - ./log:/mnt/log
+      - mongodb_data:/mnt/data
+      - mongodb_backup:/mnt/backup
+      - mongodb_log:/mnt/log
 
   mongodb:
     image: mongo:8.0.20
@@ -55,9 +55,9 @@ services:
     ports:
       - "${BIND_ADDRESS}:27017:27017"
     volumes:
-      - ./data:/data/db
-      - ./backup:/data/backup
-      - ./log:/var/log/mongodb
+      - mongodb_data:/data/db
+      - mongodb_backup:/data/backup
+      - mongodb_log:/var/log/mongodb
       - ./config/mongod.conf:/etc/mongod.conf:ro
     command: mongod --config /etc/mongod.conf
     environment:
@@ -78,4 +78,12 @@ services:
         reservations:
           memory: 256M
           cpus: "0.25"
+
+volumes:
+  mongodb_data:
+    name: mongodb_data
+  mongodb_backup:
+    name: mongodb_backup
+  mongodb_log:
+    name: mongodb_log
 

@@ -1,6 +1,6 @@
 # Docker_DBs
 
-Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desarrollo, pruebas y laboratorio en cualquier Linux (Debian, Ubuntu, Arch, Fedora, WSL, etc.). Cada motor es independiente, con configuración explícita, bind mounts y límites de recursos definidos.
+Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desarrollo, pruebas y laboratorio en cualquier plataforma (Windows con Docker Desktop, Linux nativo con Docker, VMs con Debian/Ubuntu/Arch, etc.). Cada motor es independiente, con configuración explícita, named volumes y límites de recursos definidos.
 
 **Uso**: Los servicios se ejecutan de forma independiente — no todos a la vez — para no consumir recursos innecesarios. Cada usuario levanta solo lo que necesita en cada momento.
 
@@ -180,7 +180,7 @@ docker compose \
 | `start` | Uso diario. Reanuda un contenedor parado con `stop`. |
 | `stop` | Uso diario. Pausa el contenedor sin eliminarlo ni tocar datos. |
 | `down` | Recrea el contenedor (cambio de config, nueva imagen). Elimina el contenedor pero **no los datos**. |
-| `down -v` | Elimina el contenedor **y sus volúmenes** (⚠ borra todos los datos). |
+| `down -v` | Elimina el contenedor **y sus named volumes** (⚠ borra todos los datos). |
 | `pull` | Descarga la nueva imagen sin afectar el contenedor activo. |
 | `logs -f` | Muestra los logs en tiempo real. |
 | `restart` | Reinicia el contenedor (aplica cambios de configuración). |
@@ -227,7 +227,7 @@ Todos los servicios usan init containers que preparan el entorno antes de que ar
 
 | Motor | Init containers | Función |
 |---|---|---|
-| SQL Server / PostgreSQL / MySQL / MariaDB / MongoDB | `<servicio>_init` (busybox) | Crea `data/`, `backup/`, `log/` y aplica `chown` al UID del motor |
+| SQL Server / PostgreSQL / MySQL / MariaDB / MongoDB | `<servicio>_init` (busybox) | Crea directorios en los named volumes y aplica `chown` al UID del motor |
 | Oracle 19c | `oracle19c_login` → `oracle19c_init` | Login en Oracle Container Registry, luego crea directorios y aplica `chown` |
 
 El motor arranca **sin** `user: "0"` — nunca corre como root.
@@ -240,37 +240,32 @@ El motor arranca **sin** `user: "0"` — nunca corre como root.
 | PostgreSQL / MySQL / MariaDB / MongoDB | `999` |
 | Oracle 19c | `54321` (usuario `oracle`) |
 
-### Bind mounts (no named volumes)
+### Named Volumes (portabilidad cross-platform)
 
-Los datos viven en carpetas locales del host, lo que permite:
-- Acceso directo a ficheros sin pasar por Docker
-- Backups con herramientas del SO (`rsync`, `tar`, etc.)
-- Portabilidad entre hosts
+Los datos se almacenan en Docker named volumes, lo que permite:
+- Funcionamiento correcto en Docker Desktop (Windows/Mac), Linux nativo y VMs
+- Sin problemas de permisos I/O entre el host y el contenedor
+- Gestión nativa de datos a través de `docker volume`
 
 ```
 <servicio>/
-├── data/      ← datos del motor
-├── backup/    ← directorio de backups
-├── log/       ← logs del motor
-└── config/    ← archivos de configuración (montados :ro)
+└── config/    ← archivos de configuración (montados :ro como bind mounts)
 ```
 
-> **PostgreSQL**: Los datos se montan en `/var/lib/postgresql/data` (no el directorio padre).
-
-> **Oracle 19c**: Los logs se montan en `/opt/oracle/diag/rdbms/orclcdb/ORCLCDB/trace` para acceso directo desde el host.
+Los named volumes se crean automáticamente al hacer `docker compose up` y se eliminan con `docker compose down -v`.
 
 ---
 
 ## Límites de recursos
 
-Todos los servicios tienen `deploy.resources` configurado. Los servicios se ejecutan de forma independiente, no todos a la vez.
+Todos los servicios tienen `deploy.resources` configurado. Los servicios se ejecutan de forma independiente, no todos a la vez. La distribución de recursos está diseñada para un mínimo de **8 GB de RAM y 4 cores**, permitiendo ejecutar hasta 2 motores simultáneamente.
 
 ### Container limits
 
 | Motor | RAM límite | RAM reservada | CPU límite |
 |---|---|---|---|
-| SQL Server 2025 | 1.2 GB | 256 MB | 1.5 |
-| SQL Server 2022 | 1.2 GB | 256 MB | 1.5 |
+| SQL Server 2025 | 2.0 GB | 256 MB | 1.5 |
+| SQL Server 2022 | 2.0 GB | 256 MB | 1.5 |
 | PostgreSQL 18 | 1.5 GB | 256 MB | 1.5 |
 | PostgreSQL 17 | 1.5 GB | 256 MB | 1.5 |
 | MySQL 8.4 | 1.5 GB | 256 MB | 1.5 |
@@ -282,7 +277,7 @@ Todos los servicios tienen `deploy.resources` configurado. Los servicios se ejec
 
 | Motor | Parámetro | Valor | Descripción |
 |---|---|---|---|
-| SQL Server (ambos) | `memorylimitmb` | 1000 MB | Límite interno del motor (~83% del container limit) |
+| SQL Server (ambos) | `memorylimitmb` | 1500 MB | Límite interno del motor (~75% del container limit) |
 | PostgreSQL (ambos) | `shared_buffers` | 375 MB | ~25% de 1.5 GB (cache de datos compartidos) |
 | PostgreSQL (ambos) | `effective_cache_size` | 1100 MB | ~75% de 1.5 GB (pista al planner) |
 | MySQL 8.4 | `innodb_buffer_pool_size` | 256 MB | ~17% de 1.5 GB |
@@ -335,15 +330,14 @@ docker compose --profile mssql2025 restart
 
 ## Gestión de datos
 
-Los datos de cada motor se almacenan en subdirectorios dentro de la carpeta del servicio (`data/`, `backup/`, `log/`). Estos directorios están en `.gitignore` y son creados automáticamente por el init container al primer arranque.
+Los datos de cada motor se almacenan en Docker named volumes, creados automáticamente por el init container al primer arranque.
 
 ```bash
 # Ver el espacio usado por los datos de un servicio
-du -sh ~/Docker_DBs/postgresql18/data/
+docker system df -v | grep postgresql18
 
 # Eliminar los datos de un servicio (⚠ borra todo)
-docker compose --profile postgresql18 down
-rm -rf ~/Docker_DBs/postgresql18/data/
+docker compose --profile postgresql18 down -v
 docker compose --profile postgresql18 up -d
 ```
 
@@ -382,7 +376,7 @@ SQL Server 2022 con `Latin1_General_100_CI_AS_SC` (distinto al default) realiza 
 
 ### SQL Server y permisos de directorio
 
-SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que crea los directorios locales (`data/`, `backup/`, `jobs/`, `log/`) y les aplica `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
+SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que prepara los Docker named volumes con `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
 
 ---
 
@@ -512,3 +506,5 @@ Docker_DBs/
         ├── setup/       ← scripts post-creación (una sola vez)
         └── startup/     ← scripts post-arranque (cada inicio)
 ```
+
+> **Nota**: Los datos, backups y logs se almacenan en Docker named volumes (no en el repositorio). Usá `docker volume ls` para verlos.

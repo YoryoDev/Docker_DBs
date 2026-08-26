@@ -59,9 +59,9 @@ services:
         mkdir -p /mnt/data /mnt/backup /mnt/log
         chown -R 54321:54321 /mnt/data /mnt/backup /mnt/log
     volumes:
-      - ./data:/mnt/data
-      - ./backup:/mnt/backup
-      - ./log:/mnt/log
+      - oracle19c_data:/mnt/data
+      - oracle19c_backup:/mnt/backup
+      - oracle19c_log:/mnt/log
 
   oracle19c:
     # ─────────────────────────────────────────────────────────────────────
@@ -86,9 +86,9 @@ services:
       - "${BIND_ADDRESS}:1521:1521"
       - "${BIND_ADDRESS}:5500:5500"
     volumes:
-      - ./data:/opt/oracle/oradata
-      - ./backup:/opt/oracle/backup
-      - ./log:/opt/oracle/diag/rdbms/orclcdb/ORCLCDB/trace
+      - oracle19c_data:/opt/oracle/oradata
+      - oracle19c_backup:/opt/oracle/backup
+      - oracle19c_log:/opt/oracle/diag/rdbms/orclcdb/ORCLCDB/trace
       - ./config/setup:/opt/oracle/scripts/setup:ro
       - ./config/startup:/opt/oracle/scripts/startup:ro
     # Oracle 19c en contenedor se configura por variables de entorno en la
@@ -120,3 +120,11 @@ services:
         reservations:
           memory: 512M
           cpus: "0.5"
+
+volumes:
+  oracle19c_data:
+    name: oracle19c_data
+  oracle19c_backup:
+    name: oracle19c_backup
+  oracle19c_log:
+    name: oracle19c_log

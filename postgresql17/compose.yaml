@@ -38,9 +38,9 @@ services:
         mkdir -p /mnt/data /mnt/backup /mnt/log
         chown -R 999:999 /mnt/data /mnt/backup /mnt/log
     volumes:
-      - ./data:/mnt/data
-      - ./backup:/mnt/backup
-      - ./log:/mnt/log
+      - postgresql17_data:/mnt/data
+      - postgresql17_backup:/mnt/backup
+      - postgresql17_log:/mnt/log
 
   postgresql17:
     image: postgres:17.4
@@ -56,9 +56,9 @@ services:
     ports:
       - "${BIND_ADDRESS}:5433:5432"
     volumes:
-      - ./data:/var/lib/postgresql/data
-      - ./backup:/var/lib/postgresql/backup
-      - ./log:/var/log/postgresql
+      - postgresql17_data:/var/lib/postgresql/data
+      - postgresql17_backup:/var/lib/postgresql/backup
+      - postgresql17_log:/var/log/postgresql
       - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     environment:
@@ -79,4 +79,12 @@ services:
         reservations:
           memory: 256M
           cpus: "0.25"
+
+volumes:
+  postgresql17_data:
+    name: postgresql17_data
+  postgresql17_backup:
+    name: postgresql17_backup
+  postgresql17_log:
+    name: postgresql17_log
 

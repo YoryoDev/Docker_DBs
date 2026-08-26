@@ -38,9 +38,9 @@ services:
         mkdir -p /mnt/data /mnt/backup /mnt/log
         chown -R 999:999 /mnt/data /mnt/backup /mnt/log
     volumes:
-      - ./data:/mnt/data
-      - ./backup:/mnt/backup
-      - ./log:/mnt/log
+      - mysql_data:/mnt/data
+      - mysql_backup:/mnt/backup
+      - mysql_log:/mnt/log
 
   mysql:
     image: mysql:8.4.8
@@ -55,9 +55,9 @@ services:
     ports:
       - "${BIND_ADDRESS}:3306:3306"
     volumes:
-      - ./data:/var/lib/mysql
-      - ./backup:/var/lib/mysql-backup
-      - ./log:/var/log/mysql
+      - mysql_data:/var/lib/mysql
+      - mysql_backup:/var/lib/mysql-backup
+      - mysql_log:/var/log/mysql
       - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -78,4 +78,12 @@ services:
         reservations:
           memory: 256M
           cpus: "0.25"
+
+volumes:
+  mysql_data:
+    name: mysql_data
+  mysql_backup:
+    name: mysql_backup
+  mysql_log:
+    name: mysql_log
 

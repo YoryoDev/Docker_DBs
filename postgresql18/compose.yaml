@@ -35,12 +35,12 @@ services:
       - sh
       - -c
       - |
-        mkdir -p /mnt/data /mnt/backup /mnt/log
-        chown -R 999:999 /mnt/data /mnt/backup /mnt/log
+        mkdir -p /mnt/postgresql /mnt/backup /mnt/log
+        chown -R 999:999 /mnt/postgresql /mnt/backup /mnt/log
     volumes:
-      - ./data:/mnt/data
-      - ./backup:/mnt/backup
-      - ./log:/mnt/log
+      - postgresql18_data:/mnt/postgresql
+      - postgresql18_backup:/mnt/backup
+      - postgresql18_log:/mnt/log
 
   postgresql:
     image: postgres:18.2
@@ -56,9 +56,9 @@ services:
     ports:
       - "${BIND_ADDRESS}:5432:5432"
     volumes:
-      - ./data:/var/lib/postgresql/data
-      - ./backup:/var/lib/postgresql/backup
-      - ./log:/var/log/postgresql
+      - postgresql18_data:/var/lib/postgresql
+      - postgresql18_backup:/var/lib/postgresql/backup
+      - postgresql18_log:/var/log/postgresql
       - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     environment:
@@ -79,4 +79,12 @@ services:
         reservations:
           memory: 256M
           cpus: "0.25"
+
+volumes:
+  postgresql18_data:
+    name: postgresql18_data
+  postgresql18_backup:
+    name: postgresql18_backup
+  postgresql18_log:
+    name: postgresql18_log
 
