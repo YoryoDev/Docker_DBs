@@ -121,6 +121,8 @@ Si el contenedor corre en un VPS y necesitás acceso remoto. **Importante**: con
 
 ### Con aliases (`~/.bash_aliases`)
 
+> **Nota:** Los aliases usan bash. En Windows, usá una terminal WSL2 o Git Bash.
+
 ```bash
 # Copiar aliases al home
 cp .bash_aliases ~/
