@@ -38,10 +38,10 @@ services:
         mkdir -p /mnt/data /mnt/backup /mnt/jobs /mnt/log
         chown -R 10001:0 /mnt/data /mnt/backup /mnt/jobs /mnt/log
     volumes:
-      - ./data:/mnt/data
-      - ./backup:/mnt/backup
-      - ./jobs:/mnt/jobs
-      - ./log:/mnt/log
+      - mssql2025_data:/mnt/data
+      - mssql2025_backup:/mnt/backup
+      - mssql2025_jobs:/mnt/jobs
+      - mssql2025_log:/mnt/log
 
   mssql2025:
     image: mcr.microsoft.com/mssql/server:2025-CU3-ubuntu-22.04
@@ -56,10 +56,10 @@ services:
     ports:
       - "${BIND_ADDRESS}:1433:1433"
     volumes:
-      - ./data:/var/opt/mssql/data
-      - ./backup:/var/opt/mssql/backup
-      - ./jobs:/var/opt/mssql/jobs
-      - ./log:/var/opt/mssql/log
+      - mssql2025_data:/var/opt/mssql/data
+      - mssql2025_backup:/var/opt/mssql/backup
+      - mssql2025_jobs:/var/opt/mssql/jobs
+      - mssql2025_log:/var/opt/mssql/log
       - ./config/mssql.conf:/var/opt/mssql/mssql.conf:ro
     environment:
       ACCEPT_EULA: "Y"
@@ -76,8 +76,18 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.2G
+          memory: 2G
           cpus: "1.5"
         reservations:
           memory: 256M
           cpus: "0.5"
+
+volumes:
+  mssql2025_data:
+    name: mssql2025_data
+  mssql2025_backup:
+    name: mssql2025_backup
+  mssql2025_jobs:
+    name: mssql2025_jobs
+  mssql2025_log:
+    name: mssql2025_log
