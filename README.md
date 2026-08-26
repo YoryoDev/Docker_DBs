@@ -133,18 +133,15 @@ cp .bash_aliases ~/
 #### PowerShell 7+ (Windows)
 
 ```powershell
-# Crear directorio de módulos si no existe
-New-Item -ItemType Directory -Force -Path "$HOME\Documents\PowerShell\Modules\DockerDBs"
+# Copiar el script de aliases
+Copy-Item .\DockerDBs.ps1 "$HOME\Documents\PowerShell\"
 
-# Copiar el módulo
-Copy-Item .\DockerDBs.psm1 "$HOME\Documents\PowerShell\Modules\DockerDBs\"
-
-# Importar en la sesión actual
-Import-Module DockerDBs
+# Cargar en la sesión actual
+. "$HOME\Documents\PowerShell\DockerDBs.ps1"
 
 # Para que cargue automáticamente, agregar a tu profile.ps1:
 #   notepad "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-# Agregar: Import-Module DockerDBs
+# Agregar: . "$HOME\Documents\PowerShell\DockerDBs.ps1"
 ```
 
 #### Fish (Linux)
@@ -509,7 +506,7 @@ docker exec oracle19c /home/oracle/startUp.sh
 Docker_DBs/
 ├── compose.yaml              ← orquestador raíz (include de todos los servicios)
 ├── .bash_aliases             ← aliases para Bash/Zsh
-├── DockerDBs.psm1            ← aliases para PowerShell 7+
+├── DockerDBs.ps1             ← aliases para PowerShell 7+
 ├── docker_dbs.fish           ← aliases para Fish
 ├── mssql2025/
 │   ├── compose.yaml
