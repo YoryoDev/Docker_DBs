@@ -27,7 +27,7 @@
 services:
 
   mssql2025_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - mssql2025
@@ -44,7 +44,7 @@ services:
       - mssql2025_log:/mnt/log
 
   mssql2025:
-    image: mcr.microsoft.com/mssql/server:2025-CU3-ubuntu-22.04
+    image: mcr.microsoft.com/mssql/server:2025-latest
     container_name: sqlserver25
     hostname: sqlserver25
     restart: no

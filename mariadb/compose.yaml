@@ -27,7 +27,7 @@
 services:
 
   mariadb_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - mariadb
@@ -43,7 +43,7 @@ services:
       - mariadb_log:/mnt/log
 
   mariadb:
-    image: mariadb:11.4.10
+    image: mariadb:11.4
     container_name: mariadb
     hostname: mariadb
     restart: no
@@ -86,4 +86,3 @@ volumes:
     name: mariadb_backup
   mariadb_log:
     name: mariadb_log
-

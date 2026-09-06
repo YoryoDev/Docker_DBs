@@ -1,13 +1,8 @@
 # ─── Docker DBs — PowerShell Aliases ─────────────────────────────────────────
-# INSTALACIÓN:
-#   1. Copiar este archivo:
-#        Copy-Item .\DockerDBs.ps1 "$HOME\Documents\PowerShell\"
-#
-#   2. Cargar en la sesión actual:
-#        . "$HOME\Documents\PowerShell\DockerDBs.ps1"
-#
-#   3. Para que cargue automáticamente, agregá la línea anterior a:
-#        ~\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
+# Load with dot-sourcing in the current session and in $PROFILE:
+#   $env:DDBS_HOME = Join-Path $HOME "Docker_DBs"
+#   . (Join-Path $env:DDBS_HOME "DockerDBs.ps1")
+# Preserve any existing profile content; see README for setup.
 #
 # Requisito: el repo debe estar en ~/Docker_DBs (convención por defecto).
 # Si lo clonaste en otra ruta, definí antes de cargar el script:
@@ -18,14 +13,14 @@ $script:DDBS = if ($env:DDBS_HOME) { $env:DDBS_HOME } else { "$HOME\Docker_DBs" 
 
 function Invoke-DDBSProject {
     param(
-        [Parameter(Mandatory)][string]$ProjectDir,
-        [Parameter(Mandatory)][string]$Profile,
-        [Parameter(ValueFromRemainingArguments)][string[]]$ComposeArgs
+        [string]$ProjectDir,
+        [string]$Profile
     )
     $fullDir = Join-Path $script:DDBS $ProjectDir
-    docker compose (Join-Path $fullDir "compose.yaml") `
+    docker compose -f (Join-Path $fullDir "compose.yaml") `
         --project-directory $fullDir `
-        --profile $Profile @ComposeArgs
+        --env-file (Join-Path $fullDir ".env") `
+        --profile $Profile @args
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -38,7 +33,7 @@ function Show-DDBSContainers {
         --filter 'name=sqlserver22' --filter 'name=sqlserver25' `
         --filter 'name=mysql8' --filter 'name=oracle19c' `
         --filter 'name=postgresql17' --filter 'name=postgresql18' `
-        --format 'table {{.Names}}`t{{.Status}}`t{{.Ports}}'
+        --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 }
 Set-Alias ddbs-ps Show-DDBSContainers
 
@@ -87,119 +82,119 @@ Set-Alias ddbs-help Show-DDBSHelp
 # ══════════════════════════════════════════════════════════════════════════════
 # MARIADB 11.4  |  container: mariadb  |  puerto: 3307
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-MdbUp   { Invoke-DDBSProject mariadb mariadb up -d }
-function Invoke-MdbDown { Invoke-DDBSProject mariadb mariadb down }
+function Invoke-MdbUp   { Invoke-DDBSProject mariadb mariadb up -d @args }
+function Invoke-MdbDown { Invoke-DDBSProject mariadb mariadb down @args }
 Set-Alias mdb-up       Invoke-MdbUp
 Set-Alias mdb-down     Invoke-MdbDown
-Set-Alias mdb-stop     { docker stop mariadb }
-Set-Alias mdb-start    { docker start mariadb }
-Set-Alias mdb-restart  { docker restart mariadb }
-Set-Alias mdb-logs     { docker logs -f mariadb }
-Set-Alias mdb-shell    { docker exec -it mariadb bash }
-Set-Alias mdb-client   { docker exec -it mariadb mariadb -u root -p }
-Set-Alias mdb-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" mariadb }
+function mdb-stop     { docker stop mariadb @args }
+function mdb-start    { docker start mariadb @args }
+function mdb-restart  { docker restart mariadb @args }
+function mdb-logs     { docker logs -f mariadb @args }
+function mdb-shell    { docker exec -it mariadb bash @args }
+function mdb-client   { docker exec -it mariadb mariadb -u root -p @args }
+function mdb-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" mariadb @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MONGODB 8.0  |  container: mongodb8  |  puerto: 27017
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-MongoUp   { Invoke-DDBSProject mongodb mongodb up -d }
-function Invoke-MongoDown { Invoke-DDBSProject mongodb mongodb down }
+function Invoke-MongoUp   { Invoke-DDBSProject mongodb mongodb up -d @args }
+function Invoke-MongoDown { Invoke-DDBSProject mongodb mongodb down @args }
 Set-Alias mongo-up       Invoke-MongoUp
 Set-Alias mongo-down     Invoke-MongoDown
-Set-Alias mongo-stop     { docker stop mongodb8 }
-Set-Alias mongo-start    { docker start mongodb8 }
-Set-Alias mongo-restart  { docker restart mongodb8 }
-Set-Alias mongo-logs     { docker logs -f mongodb8 }
-Set-Alias mongo-shell    { docker exec -it mongodb8 bash }
-Set-Alias mongo-cli      { docker exec -it mongodb8 mongosh }
-Set-Alias mongo-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" mongodb8 }
+function mongo-stop     { docker stop mongodb8 @args }
+function mongo-start    { docker start mongodb8 @args }
+function mongo-restart  { docker restart mongodb8 @args }
+function mongo-logs     { docker logs -f mongodb8 @args }
+function mongo-shell    { docker exec -it mongodb8 bash @args }
+function mongo-cli      { docker exec -it mongodb8 mongosh @args }
+function mongo-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" mongodb8 @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SQL SERVER 2022  |  container: sqlserver22  |  puerto: 1434
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-Sql22Up   { Invoke-DDBSProject mssql2022 mssql2022 up -d }
-function Invoke-Sql22Down { Invoke-DDBSProject mssql2022 mssql2022 down }
+function Invoke-Sql22Up   { Invoke-DDBSProject mssql2022 mssql2022 up -d @args }
+function Invoke-Sql22Down { Invoke-DDBSProject mssql2022 mssql2022 down @args }
 Set-Alias sql22-up       Invoke-Sql22Up
 Set-Alias sql22-down     Invoke-Sql22Down
-Set-Alias sql22-stop     { docker stop sqlserver22 }
-Set-Alias sql22-start    { docker start sqlserver22 }
-Set-Alias sql22-restart  { docker restart sqlserver22 }
-Set-Alias sql22-logs     { docker logs -f sqlserver22 }
-Set-Alias sql22-shell    { docker exec -it sqlserver22 bash }
-Set-Alias sql22-client   { docker exec -it sqlserver22 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No }
-Set-Alias sql22-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" sqlserver22 }
+function sql22-stop     { docker stop sqlserver22 @args }
+function sql22-start    { docker start sqlserver22 @args }
+function sql22-restart  { docker restart sqlserver22 @args }
+function sql22-logs     { docker logs -f sqlserver22 @args }
+function sql22-shell    { docker exec -it sqlserver22 bash @args }
+function sql22-client   { docker exec -it sqlserver22 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No @args }
+function sql22-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" sqlserver22 @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SQL SERVER 2025  |  container: sqlserver25  |  puerto: 1433
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-Sql25Up   { Invoke-DDBSProject mssql2025 mssql2025 up -d }
-function Invoke-Sql25Down { Invoke-DDBSProject mssql2025 mssql2025 down }
+function Invoke-Sql25Up   { Invoke-DDBSProject mssql2025 mssql2025 up -d @args }
+function Invoke-Sql25Down { Invoke-DDBSProject mssql2025 mssql2025 down @args }
 Set-Alias sql25-up       Invoke-Sql25Up
 Set-Alias sql25-down     Invoke-Sql25Down
-Set-Alias sql25-stop     { docker stop sqlserver25 }
-Set-Alias sql25-start    { docker start sqlserver25 }
-Set-Alias sql25-restart  { docker restart sqlserver25 }
-Set-Alias sql25-logs     { docker logs -f sqlserver25 }
-Set-Alias sql25-shell    { docker exec -it sqlserver25 bash }
-Set-Alias sql25-client   { docker exec -it sqlserver25 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No }
-Set-Alias sql25-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" sqlserver25 }
+function sql25-stop     { docker stop sqlserver25 @args }
+function sql25-start    { docker start sqlserver25 @args }
+function sql25-restart  { docker restart sqlserver25 @args }
+function sql25-logs     { docker logs -f sqlserver25 @args }
+function sql25-shell    { docker exec -it sqlserver25 bash @args }
+function sql25-client   { docker exec -it sqlserver25 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No @args }
+function sql25-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" sqlserver25 @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MYSQL 8.4  |  container: mysql8  |  puerto: 3306
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-MySQLUp   { Invoke-DDBSProject mysql mysql up -d }
-function Invoke-MySQLDown { Invoke-DDBSProject mysql mysql down }
+function Invoke-MySQLUp   { Invoke-DDBSProject mysql mysql up -d @args }
+function Invoke-MySQLDown { Invoke-DDBSProject mysql mysql down @args }
 Set-Alias mysql-up       Invoke-MySQLUp
 Set-Alias mysql-down     Invoke-MySQLDown
-Set-Alias mysql-stop     { docker stop mysql8 }
-Set-Alias mysql-start    { docker start mysql8 }
-Set-Alias mysql-restart  { docker restart mysql8 }
-Set-Alias mysql-logs     { docker logs -f mysql8 }
-Set-Alias mysql-shell    { docker exec -it mysql8 bash }
-Set-Alias mysql-client   { docker exec -it mysql8 mysql -u root -p }
-Set-Alias mysql-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" mysql8 }
+function mysql-stop     { docker stop mysql8 @args }
+function mysql-start    { docker start mysql8 @args }
+function mysql-restart  { docker restart mysql8 @args }
+function mysql-logs     { docker logs -f mysql8 @args }
+function mysql-shell    { docker exec -it mysql8 bash @args }
+function mysql-client   { docker exec -it mysql8 mysql -u root -p @args }
+function mysql-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" mysql8 @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ORACLE 19c  |  container: oracle19c  |  puertos: 1521 (SQL), 5500 (EM)
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-OraUp   { Invoke-DDBSProject oracle19c oracle19c up -d }
-function Invoke-OraDown { Invoke-DDBSProject oracle19c oracle19c down }
+function Invoke-OraUp   { Invoke-DDBSProject oracle19c oracle19c up -d @args }
+function Invoke-OraDown { Invoke-DDBSProject oracle19c oracle19c down @args }
 Set-Alias ora-up       Invoke-OraUp
 Set-Alias ora-down     Invoke-OraDown
-Set-Alias ora-stop     { docker stop oracle19c }
-Set-Alias ora-start    { docker start oracle19c }
-Set-Alias ora-restart  { docker restart oracle19c }
-Set-Alias ora-logs     { docker logs -f oracle19c }
-Set-Alias ora-shell    { docker exec -it oracle19c bash }
-Set-Alias ora-sysdba   { docker exec -it oracle19c sqlplus / as sysdba }
-Set-Alias ora-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" oracle19c }
+function ora-stop     { docker stop oracle19c @args }
+function ora-start    { docker start oracle19c @args }
+function ora-restart  { docker restart oracle19c @args }
+function ora-logs     { docker logs -f oracle19c @args }
+function ora-shell    { docker exec -it oracle19c bash @args }
+function ora-sysdba   { docker exec -it oracle19c sqlplus / as sysdba @args }
+function ora-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" oracle19c @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # POSTGRESQL 17  |  container: postgresql17  |  puerto: 5433
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-Pg17Up   { Invoke-DDBSProject postgresql17 postgresql17 up -d }
-function Invoke-Pg17Down { Invoke-DDBSProject postgresql17 postgresql17 down }
+function Invoke-Pg17Up   { Invoke-DDBSProject postgresql17 postgresql17 up -d @args }
+function Invoke-Pg17Down { Invoke-DDBSProject postgresql17 postgresql17 down @args }
 Set-Alias pg17-up       Invoke-Pg17Up
 Set-Alias pg17-down     Invoke-Pg17Down
-Set-Alias pg17-stop     { docker stop postgresql17 }
-Set-Alias pg17-start    { docker start postgresql17 }
-Set-Alias pg17-restart  { docker restart postgresql17 }
-Set-Alias pg17-logs     { docker logs -f postgresql17 }
-Set-Alias pg17-shell    { docker exec -it postgresql17 bash }
-Set-Alias pg17-psql     { docker exec -it postgresql17 psql -U postgres }
-Set-Alias pg17-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql17 }
+function pg17-stop     { docker stop postgresql17 @args }
+function pg17-start    { docker start postgresql17 @args }
+function pg17-restart  { docker restart postgresql17 @args }
+function pg17-logs     { docker logs -f postgresql17 @args }
+function pg17-shell    { docker exec -it postgresql17 bash @args }
+function pg17-psql     { docker exec -it postgresql17 sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh @args }
+function pg17-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql17 @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # POSTGRESQL 18  |  container: postgresql18  |  puerto: 5432
 # ══════════════════════════════════════════════════════════════════════════════
-function Invoke-Pg18Up   { Invoke-DDBSProject postgresql18 postgresql18 up -d }
-function Invoke-Pg18Down { Invoke-DDBSProject postgresql18 postgresql18 down }
+function Invoke-Pg18Up   { Invoke-DDBSProject postgresql18 postgresql18 up -d @args }
+function Invoke-Pg18Down { Invoke-DDBSProject postgresql18 postgresql18 down @args }
 Set-Alias pg18-up       Invoke-Pg18Up
 Set-Alias pg18-down     Invoke-Pg18Down
-Set-Alias pg18-stop     { docker stop postgresql18 }
-Set-Alias pg18-start    { docker start postgresql18 }
-Set-Alias pg18-restart  { docker restart postgresql18 }
-Set-Alias pg18-logs     { docker logs -f postgresql18 }
-Set-Alias pg18-shell    { docker exec -it postgresql18 bash }
-Set-Alias pg18-psql     { docker exec -it postgresql18 psql -U postgres }
-Set-Alias pg18-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql18 }
+function pg18-stop     { docker stop postgresql18 @args }
+function pg18-start    { docker start postgresql18 @args }
+function pg18-restart  { docker restart postgresql18 @args }
+function pg18-logs     { docker logs -f postgresql18 @args }
+function pg18-shell    { docker exec -it postgresql18 bash @args }
+function pg18-psql     { docker exec -it postgresql18 sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh @args }
+function pg18-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql18 @args }

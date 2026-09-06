@@ -27,7 +27,7 @@
 services:
 
   mysql_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - mysql
@@ -43,7 +43,7 @@ services:
       - mysql_log:/mnt/log
 
   mysql:
-    image: mysql:8.4.8
+    image: mysql:8.4
     container_name: mysql8
     hostname: mysql8
     restart: no
@@ -86,4 +86,3 @@ volumes:
     name: mysql_backup
   mysql_log:
     name: mysql_log
-

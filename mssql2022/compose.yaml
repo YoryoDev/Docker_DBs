@@ -27,7 +27,7 @@
 services:
 
   mssql2022_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - mssql2022
@@ -44,7 +44,7 @@ services:
       - mssql2022_log:/mnt/log
 
   mssql2022:
-    image: mcr.microsoft.com/mssql/server:2022-CU23-ubuntu-22.04
+    image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: sqlserver22
     hostname: sqlserver22
     restart: no

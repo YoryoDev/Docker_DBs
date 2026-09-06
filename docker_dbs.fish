@@ -12,14 +12,15 @@
 #   set -gx DDBS_HOME /ruta/al/repo/Docker_DBs
 # ──────────────────────────────────────────────────────────────────────────────
 
-set -l _DDBS (if set -q DDBS_HOME; echo $DDBS_HOME; else; echo "$HOME/Docker_DBs"; end)
+set -l _DDBS (if test -n "$DDBS_HOME"; echo "$DDBS_HOME"; else; echo "$HOME/Docker_DBs"; end)
 
-function _ddbs_project
+function _ddbs_project --inherit-variable _DDBS
     set -l project_dir "$_DDBS/$argv[1]"
     set -l profile $argv[2]
     set -l rest $argv[3..-1]
     docker compose -f "$project_dir/compose.yaml" \
         --project-directory "$project_dir" \
+        --env-file "$project_dir/.env" \
         --profile $profile $rest
 end
 
@@ -167,7 +168,9 @@ alias pg17-start   'docker start postgresql17'
 alias pg17-restart 'docker restart postgresql17'
 alias pg17-logs    'docker logs -f postgresql17'
 alias pg17-shell   'docker exec -it postgresql17 bash'
-alias pg17-psql    'docker exec -it postgresql17 psql -U postgres'
+function pg17-psql
+    docker exec -it postgresql17 sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh $argv
+end
 alias pg17-status  'docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql17'
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -180,5 +183,7 @@ alias pg18-start   'docker start postgresql18'
 alias pg18-restart 'docker restart postgresql18'
 alias pg18-logs    'docker logs -f postgresql18'
 alias pg18-shell   'docker exec -it postgresql18 bash'
-alias pg18-psql    'docker exec -it postgresql18 psql -U postgres'
+function pg18-psql
+    docker exec -it postgresql18 sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh $argv
+end
 alias pg18-status  'docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql18'

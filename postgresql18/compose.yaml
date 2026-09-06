@@ -27,7 +27,7 @@
 services:
 
   postgresql18_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - postgresql18
@@ -43,7 +43,7 @@ services:
       - postgresql18_log:/mnt/log
 
   postgresql:
-    image: postgres:18.2
+    image: postgres:18
     container_name: postgresql18
     hostname: postgresql18
     restart: no
@@ -87,4 +87,3 @@ volumes:
     name: postgresql18_backup
   postgresql18_log:
     name: postgresql18_log
-

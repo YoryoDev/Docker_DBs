@@ -1,3 +1,5 @@
+# Root mode requires all eight .env files before profile selection.
+# For a single configured engine, use its standalone Compose file (see README).
 include:
   - path: ./mssql2025/compose.yaml
     env_file: ./mssql2025/.env

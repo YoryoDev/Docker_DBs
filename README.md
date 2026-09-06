@@ -27,14 +27,18 @@ Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desar
 
 | Servicio | Motor | Imagen | Puerto host | Collation / Charset |
 |---|---|---|---|---|
-| `mssql2025` | SQL Server 2025 | `mssql/server:2025-CU3-ubuntu-22.04` | `1433` | `Latin1_General_100_CI_AS_SC` |
-| `mssql2022` | SQL Server 2022 | `mssql/server:2022-CU23-ubuntu-22.04` | `1434` | `Latin1_General_100_CI_AS_SC` |
-| `postgresql18` | PostgreSQL 18.2 | `postgres:18.2` | `5432` | — |
-| `postgresql17` | PostgreSQL 17.4 LTS | `postgres:17.4` | `5433` | — |
-| `mysql` | MySQL 8.4.8 LTS | `mysql:8.4.8` | `3306` | `utf8mb4_unicode_ci` |
-| `mariadb` | MariaDB 11.4.10 LTS | `mariadb:11.4.10` | `3307` | `utf8mb4_unicode_ci` |
-| `mongodb` | MongoDB 8.0.20 | `mongo:8.0.20` | `27017` | — |
-| `oracle19c` | Oracle 19c EE | `enterprise:19.3.0.0` | `1521` / `5500` | `AL32UTF8` |
+| `mssql2025` | SQL Server 2025 | `mcr.microsoft.com/mssql/server:2025-latest` | `1433` | `Latin1_General_100_CI_AS_SC` |
+| `mssql2022` | SQL Server 2022 | `mcr.microsoft.com/mssql/server:2022-latest` | `1434` | `Latin1_General_100_CI_AS_SC` |
+| `postgresql` (perfil `postgresql18`) | PostgreSQL 18 | `postgres:18` | `5432` | — |
+| `postgresql17` | PostgreSQL 17 | `postgres:17` | `5433` | — |
+| `mysql` | MySQL 8.4 LTS | `mysql:8.4` | `3306` | `utf8mb4_unicode_ci` |
+| `mariadb` | MariaDB 11.4 LTS | `mariadb:11.4` | `3307` | `utf8mb4_unicode_ci` |
+| `mongodb` | MongoDB 8.0 | `mongo:8.0` | `27017` | — |
+| `oracle19c` | Oracle 19c EE | `container-registry.oracle.com/database/enterprise:19.3.0.0` | `1521` / `5500` | `AL32UTF8` |
+
+Las imágenes provienen del fabricante o de Docker Official Images. Las etiquetas flotan dentro de la línea indicada, no hacia otra versión mayor; PostgreSQL usa la variante estándar, no Alpine. Los auxiliares usan `busybox:1`. Oracle es una excepción: se conserva la referencia existente hasta verificar una alternativa oficial de mantenimiento **19c Enterprise Edition**; no se ha confirmado su disponibilidad actual ni una etiqueta flotante 19c.
+
+Fuentes: [tags de Microsoft](https://mcr.microsoft.com/v2/mssql/server/tags/list), catálogo oficial de [PostgreSQL](https://github.com/docker-library/official-images/blob/master/library/postgres), [MySQL](https://github.com/docker-library/official-images/blob/master/library/mysql), [MariaDB](https://github.com/docker-library/official-images/blob/master/library/mariadb), [MongoDB](https://github.com/docker-library/official-images/blob/master/library/mongo) y [BusyBox](https://github.com/docker-library/official-images/blob/master/library/busybox).
 
 ---
 
@@ -53,21 +57,29 @@ Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desar
 git clone <url-del-repositorio> Docker_DBs
 cd Docker_DBs
 
-# 2. Copiar los .env.example a .env (solo los servicios que vayas a usar)
-cp postgresql18/.env.example postgresql18/.env
-cp mysql/.env.example        mysql/.env
-cp mariadb/.env.example      mariadb/.env
-cp mongodb/.env.example      mongodb/.env
-cp mssql2025/.env.example    mssql2025/.env
-cp mssql2022/.env.example    mssql2022/.env
-cp oracle19c/.env.example    oracle19c/.env
+# 2. Preparar solo el motor elegido, sin sobrescribir un .env existente
+test -e postgresql18/.env || cp postgresql18/.env.example postgresql18/.env
 
-# 3. Editar credenciales en cada .env (opcional, los defaults funcionan)
+# 3. Configurar las credenciales antes del primer arranque
 nano postgresql18/.env
 
-# 4. Levantar el servicio que necesites
-docker compose --profile postgresql18 up -d
+# 4. Usar el Compose independiente de ese motor
+docker compose -f postgresql18/compose.yaml --env-file postgresql18/.env --profile postgresql18 up -d
 ```
+
+Este flujo y los helpers solo necesitan el `.env` del motor elegido. Desde su carpeta también funciona `docker compose --env-file .env --profile postgresql18 up -d`. Sin perfil, los servicios quedan desactivados.
+
+**Flujo raíz:** el `compose.yaml` raíz incluye los ocho proyectos y carga sus `.env` antes de seleccionar perfiles. Para usar los comandos raíz, preparar **todos** los `.env` (incluido PostgreSQL 17), aunque se arranque un único motor:
+
+```bash
+for service in mssql2022 mssql2025 postgresql17 postgresql18 mysql mariadb mongodb oracle19c; do
+  test -e "$service/.env" || cp "$service/.env.example" "$service/.env"
+done
+```
+
+Configurar sus valores antes del primer arranque. No hay contraseñas de respaldo incrustadas en Compose. Las variables exportadas en la shell tienen precedencia sobre los `.env`; evitar exportar nombres compartidos como `POSTGRES_USER`, `MSSQL_SA_PASSWORD` o `BIND_ADDRESS` si se desean valores diferentes por motor. Véase [Compose include](https://docs.docker.com/reference/compose-file/include/).
+
+No alternar el flujo raíz y el independiente para contenedores ya creados: tienen distintos proyectos/redes Compose, pero comparten nombres de contenedor y volúmenes. Mantener el flujo con el que se crearon; cualquier transición debe planificarse sin `down -v`.
 
 ---
 
@@ -89,7 +101,7 @@ Controla en qué interfaz de red se expone el puerto de cada servicio. Todos los
 ```env
 BIND_ADDRESS=127.0.0.1
 ```
-Los servicios solo son accesibles desde la misma máquina. Seguro por defecto.
+El enlace queda limitado a la máquina local. Esto no configura TLS ni sustituye la autenticación. Si falta `BIND_ADDRESS`, la interpolación vacía puede publicar en todas las interfaces; mantener `127.0.0.1` para el laboratorio local.
 
 **Red local (LAN):**
 ```env
@@ -121,54 +133,49 @@ Si el contenedor corre en un VPS y necesitás acceso remoto. **Importante**: con
 
 ### Con aliases
 
-El repo incluye aliases para **Bash**, **PowerShell** y **Fish**. Elegí el que uses:
+El repositorio incluye helpers para **Bash**, **PowerShell** y **Fish**. Cargar el archivo correspondiente a la shell utilizada:
 
 #### Bash / Zsh (Linux, macOS, WSL2, Git Bash)
 
 ```bash
-# Copiar aliases al home (se carga automáticamente en cada sesión)
-cp .bash_aliases ~/
+# Añadir estas líneas a ~/.bashrc (o ~/.zshrc), ajustando la ruta
+export DDBS_HOME="$HOME/Docker_DBs"
+source "$DDBS_HOME/.bash_aliases"
 ```
+
+Ejecutar esas líneas también en la sesión actual. No sobrescribir un `~/.bash_aliases` existente; su carga automática depende del archivo de inicio de cada shell.
 
 #### PowerShell 7+ (Windows)
 
 ```powershell
-# Copiar el script de aliases
-Copy-Item .\DockerDBs.ps1 "$HOME\Documents\PowerShell\"
-
-# Cargar en la sesión actual
-. "$HOME\Documents\PowerShell\DockerDBs.ps1"
-
-# Para que cargue automáticamente, agregar a tu profile.ps1:
-#   notepad "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-# Agregar: . "$HOME\Documents\PowerShell\DockerDBs.ps1"
+# Añadir estas líneas a $PROFILE, ajustando la ruta; ejecutarlas también ahora
+$env:DDBS_HOME = Join-Path $HOME "Docker_DBs"
+. (Join-Path $env:DDBS_HOME "DockerDBs.ps1")
 ```
+
+Usar `$PROFILE` de la shell actual, no una ruta fija de Windows. Si no existe, crear su carpeta y archivo sin reemplazar un perfil existente. El punto inicial carga las funciones en la sesión; ejecutar el script sin ese punto no las conserva.
 
 #### Fish (Linux)
 
 ```fish
-# Copiar aliases a conf.d (se carga automáticamente)
-cp docker_dbs.fish ~/.config/fish/conf.d/
-
-# Recargar la sesión actual
-source ~/.config/fish/conf.d/docker_dbs.fish
+# Añadir a ~/.config/fish/config.fish; ejecutar también en la sesión actual
+set -gx DDBS_HOME "$HOME/Docker_DBs"
+source "$DDBS_HOME/docker_dbs.fish"
 ```
 
 #### Uso (igual para las 3 shells)
 
 ```bash
 # Primera vez
-mssql25-up
+sql25-up
 pg18-up
 
 # Operación diaria
-mssql25-stop
-mssql25-start
+sql25-stop
+sql25-start
 
-# Actualizar versión
-mssql25-stop
-mssql25-down
-mssql25-up
+# Actualizar mantenimiento dentro de SQL Server 2025 (hacer respaldo primero)
+sql25-up --pull always
 
 # Estado global
 ddbs-ps
@@ -190,9 +197,12 @@ ddbs-help   # cheatsheet completo
 
 ### Con Docker Compose directo (desde la raíz)
 
+Requiere los ocho `.env` preparados como se explica en la instalación. Los perfiles no evitan cargar los archivos incluidos.
+
 ```bash
 # Levantar un servicio
 docker compose --profile postgresql18 up -d
+docker compose --profile postgresql17 up -d
 docker compose --profile mysql up -d
 docker compose --profile mariadb up -d
 docker compose --profile mongodb up -d
@@ -222,21 +232,21 @@ docker compose \
 |---|---|
 | `up` | Primera vez o tras un `down`. Crea el contenedor y lo arranca. |
 | `start` | Uso diario. Reanuda un contenedor parado con `stop`. |
-| `stop` | Uso diario. Pausa el contenedor sin eliminarlo ni tocar datos. |
-| `down` | Recrea el contenedor (cambio de config, nueva imagen). Elimina el contenedor pero **no los datos**. |
+| `stop` | Detiene el contenedor sin eliminarlo; el motor puede escribir datos al cerrarse. |
+| `down` | Elimina contenedores y redes del proyecto seleccionado; no recrea ni elimina named volumes sin `-v`. |
 | `down -v` | Elimina el contenedor **y sus named volumes** (⚠ borra todos los datos). |
 | `pull` | Descarga la nueva imagen sin afectar el contenedor activo. |
 | `logs -f` | Muestra los logs en tiempo real. |
-| `restart` | Reinicia el contenedor (aplica cambios de configuración). |
+| `restart` | Reinicia el contenedor existente; no aplica cambios de imagen, variables ni definición Compose. |
 
 ### Estado de los contenedores
 
 ```bash
 # Ver todos los contenedores del proyecto (activos e inactivos)
-docker compose ps -a
+docker compose --profile '*' ps -a
 
 # Ver solo los activos
-docker compose ps
+docker compose --profile '*' ps
 
 # Ver estado con health checks
 docker ps --format "table {{.Names}}\t{{.Status}}"
@@ -272,9 +282,9 @@ Todos los servicios usan init containers que preparan el entorno antes de que ar
 | Motor | Init containers | Función |
 |---|---|---|
 | SQL Server / PostgreSQL / MySQL / MariaDB / MongoDB | `<servicio>_init` (busybox) | Crea directorios en los named volumes y aplica `chown` al UID del motor |
-| Oracle 19c | `oracle19c_login` → `oracle19c_init` | Login en Oracle Container Registry, luego crea directorios y aplica `chown` |
+| Oracle 19c | `oracle19c_init` | Crea directorios y aplica `chown`; el login se hace antes en el host |
 
-El motor arranca **sin** `user: "0"` — nunca corre como root.
+Los auxiliares de permisos usan root. Los entrypoints oficiales pueden comenzar como root y cambiar al usuario del motor; omitir `user: "0"` no demuestra por sí solo que todo el arranque sea sin privilegios.
 
 ### UIDs de proceso
 
@@ -363,6 +373,8 @@ Los archivos de configuración de cada motor se encuentran en `<servicio>/config
 
 ### Aplicar cambios de configuración
 
+Un reinicio puede recargar archivos bind-mounted si el motor los lee al arrancar. Para cambios en Compose, variables o imágenes, usar `up -d` para recrear cuando corresponda; no basta con `restart`.
+
 ```bash
 # Después de editar el archivo de config correspondiente
 docker compose --profile postgresql18 restart
@@ -376,19 +388,22 @@ docker compose --profile mssql2025 restart
 
 Los datos de cada motor se almacenan en Docker named volumes, creados automáticamente por el init container al primer arranque.
 
+Los volúmenes `*_backup` son solo almacenamiento: **no hay respaldos automáticos**. Crear y comprobar respaldos con las herramientas del motor antes de actualizar. No se cambian los nombres de volúmenes, bases predeterminadas ni puntos de montaje con estas etiquetas.
+
+PostgreSQL 18 conserva el volumen en `/var/lib/postgresql`, con `PGDATA=/var/lib/postgresql/18/docker`; PostgreSQL 17 conserva `/var/lib/postgresql/data`. No mover datos ni conectar un volumen de otra versión mayor sin migración. Las etiquetas flotantes pueden cambiar la distribución base y las bibliotecas de collation: comprobar compatibilidad e índices al actualizar. Véase la [documentación oficial de la imagen](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata).
+
 ```bash
 # Ver el espacio usado por los datos de un servicio
 docker system df -v | grep postgresql18
 
-# Eliminar los datos de un servicio (⚠ borra todo)
-docker compose --profile postgresql18 down -v
-docker compose --profile postgresql18 up -d
 ```
+
+**Borrado:** `down -v` elimina volúmenes nombrados del modelo Compose; no asumir que un perfil limita el borrado a ese motor en el archivo raíz. No usarlo para actualizar imágenes ni cambiar entre flujos. Los respaldos guardados en `*_backup` también pueden eliminarse.
 
 ### Actualizar una imagen
 
 ```bash
-# 1. Actualizar el tag de la imagen en compose.yaml (control explícito de versión)
+# 1. Crear y verificar un respaldo; revisar las notas de mantenimiento del motor
 
 # 2. Descargar la nueva imagen
 docker compose --profile postgresql18 pull
@@ -428,26 +443,27 @@ SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`).
 
 ### Requisito previo (solo la primera vez)
 
-La imagen de Oracle está en un registry privado que requiere aceptar la licencia OTN y autenticarse. El **login se realiza automáticamente** cada vez que haces `up` — solo tenés que configurar las credenciales en el `.env` del servicio.
+La autenticación debe realizarse **en el host antes de `pull` o `up`**. Un contenedor dependiente no puede autenticar una descarga previa a su propio arranque. Ya no se monta el socket Docker ni la configuración del cliente en un contenedor de login.
 
 1. Crea o inicia sesión en [container-registry.oracle.com](https://container-registry.oracle.com).
 2. Navega a **Database → enterprise** y acepta la licencia OTN.
 3. En el portal ve a tu perfil → **"Auth Token"** → genera una secret key.
    > Usa la **secret key** como contraseña, **no** la contraseña de tu cuenta SSO.
-4. Rellena estas variables en `oracle19c/.env`:
-
-```env
-ORACLE_REGISTRY_USER=tu-correo@ejemplo.com
-ORACLE_REGISTRY_PASS="tu-secret-key"   # entre comillas si contiene caracteres especiales
-```
-
-5. Ya podés levantar el servicio normalmente:
+4. Inicia sesión desde la terminal del host e introduce las credenciales cuando se soliciten:
 
 ```bash
-docker compose --profile oracle19c up -d
+docker login container-registry.oracle.com
 ```
 
-El init container `oracle19c_login` ejecuta `docker login` antes de que arranquen los demás servicios. Si las credenciales son incorrectas, el `up` fallará antes de intentar descargar la imagen.
+5. Configura `oracle19c/.env` y usa el flujo independiente:
+
+```bash
+docker compose -f oracle19c/compose.yaml --env-file oracle19c/.env --profile oracle19c up -d
+```
+
+Las antiguas variables `ORACLE_REGISTRY_USER` y `ORACLE_REGISTRY_PASS` ya no se consumen, aunque aparezcan en plantillas anteriores; no guardarlas en nuevos `.env`. No se modifican los `.env` existentes.
+
+**Excepción de versión:** se conserva `enterprise:19.3.0.0`, sin afirmar que sea la última actualización 19c ni que su descarga esté disponible. La consulta del portal no permitió verificar una etiqueta flotante. Confirmar la disponibilidad y licencia en [Oracle Container Registry](https://container-registry.oracle.com) antes de descargar. Oracle documenta también [construcciones y parches de 19c EE](https://github.com/oracle/docker-images/tree/main/OracleDatabase/SingleInstance), pero requieren binarios/licencias y no equivalen a una etiqueta publicada. No sustituir por `latest`, XE o Free.
 
 ### Primer arranque (~15-20 minutos)
 
@@ -554,3 +570,14 @@ Docker_DBs/
 ```
 
 > **Nota**: Los datos, backups y logs se almacenan en Docker named volumes (no en el repositorio). Usá `docker volume ls` para verlos.
+
+## Validación sin iniciar bases de datos
+
+```bash
+bash -n .bash_aliases
+fish --no-config --no-execute docker_dbs.fish
+python3 tests/test_setup.py
+git diff --check
+```
+
+Las pruebas usan Docker simulado para los helpers y ejecutan `docker compose config` sobre copias temporales con valores ficticios. No leen los `.env` reales ni arrancan servicios. Comprueban perfiles, aislamiento entre configuraciones, rutas con espacios, argumentos y conservación de identidades persistentes frente a `HEAD`. La prueba PowerShell se omite si falta `pwsh`. Estas verificaciones **no demuestran** que los motores arranquen, acepten conexiones o sean compatibles con los datos existentes.

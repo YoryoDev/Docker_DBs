@@ -26,32 +26,11 @@
 
 services:
 
-  oracle19c_login:
-    image: docker:cli
-    user: "0"
-    profiles:
-      - oracle19c
-    environment:
-      ORACLE_REGISTRY_USER: ${ORACLE_REGISTRY_USER}
-      ORACLE_REGISTRY_PASS: ${ORACLE_REGISTRY_PASS}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}/.docker:/root/.docker
-    command:
-      - sh
-      - -c
-      - |
-        echo "$$ORACLE_REGISTRY_PASS" | docker login container-registry.oracle.com \
-          -u "$$ORACLE_REGISTRY_USER" --password-stdin
-
   oracle19c_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - oracle19c
-    depends_on:
-      oracle19c_login:
-        condition: service_completed_successfully
     command:
       - sh
       - -c
@@ -64,15 +43,8 @@ services:
       - oracle19c_log:/mnt/log
 
   oracle19c:
-    # ─────────────────────────────────────────────────────────────────────
-    # REQUISITO PREVIO — Solo la primera vez, antes de hacer up:
-    #   1. Crea cuenta en https://container-registry.oracle.com
-    #   2. Navega a Database → enterprise y acepta la licencia OTN.
-    #   3. En el portal ve a tu perfil → "Auth Token" → genera una
-    #      secret key (úsala como ORACLE_REGISTRY_PASS, NO la del SSO).
-    #   4. Rellena ORACLE_REGISTRY_USER y ORACLE_REGISTRY_PASS en .env.
-    #   El login se ejecuta automáticamente al hacer `docker compose up`.
-    # ─────────────────────────────────────────────────────────────────────
+    # Authenticate on the host before pull/up: docker login container-registry.oracle.com
+    # Keep 19c Enterprise Edition: no floating 19c tag has been verified.
     image: container-registry.oracle.com/database/enterprise:19.3.0.0
     container_name: oracle19c
     hostname: oracle19c

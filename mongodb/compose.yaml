@@ -27,7 +27,7 @@
 services:
 
   mongodb_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - mongodb
@@ -43,7 +43,7 @@ services:
       - mongodb_log:/mnt/log
 
   mongodb:
-    image: mongo:8.0.20
+    image: mongo:8.0
     container_name: mongodb8
     hostname: mongodb8
     restart: no
@@ -86,4 +86,3 @@ volumes:
     name: mongodb_backup
   mongodb_log:
     name: mongodb_log
-

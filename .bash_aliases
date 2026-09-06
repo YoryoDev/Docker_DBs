@@ -1,9 +1,7 @@
 # ─── Docker DBs — Bash Aliases ────────────────────────────────────────────────
 # INSTALACIÓN:
-#   1. Copia este archivo a tu home:
-#        cp .bash_aliases ~/
-#
-#   2. Los aliases cargarán automáticamente en cada sesión.
+# Load this file explicitly from ~/.bashrc (or ~/.zshrc).
+# Set DDBS_HOME before sourcing; do not overwrite existing alias files.
 #
 # Requisito para up/down: el repo debe estar en ~/Docker_DBs
 # (convención por defecto). Si lo clonaste en otra ruta, añade esto
@@ -13,7 +11,7 @@
 
 # Directorio raíz del repo.
 # Por defecto usa ~/Docker_DBs; sobreescribe con: export DDBS_HOME=/otra/ruta
-_DDBS="${DDBS_HOME:-$HOME/Docker_DBs}"  
+_DDBS="${DDBS_HOME:-$HOME/Docker_DBs}"
 # Helper interno: ejecuta docker compose en el subdirectorio de cada proyecto
 # Cada proyecto usa su propio compose.yaml y .env — sin depender del compose.yaml raíz
 # Uso: _ddbs_project <subdir> <profile> <comando...>
@@ -23,6 +21,7 @@ _ddbs_project() {
   shift 2
   docker compose -f "${project_dir}/compose.yaml" \
     --project-directory "${project_dir}" \
+    --env-file "${project_dir}/.env" \
     --profile "${profile}" \
     "$@"
 }
@@ -175,7 +174,7 @@ alias pg17-start='docker start postgresql17'
 alias pg17-restart='docker restart postgresql17'
 alias pg17-logs='docker logs -f postgresql17'
 alias pg17-shell='docker exec -it postgresql17 bash'
-alias pg17-psql='docker exec -it postgresql17 psql -U postgres'
+alias pg17-psql='docker exec -it postgresql17 sh -c '\''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
 alias pg17-status='docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql17'
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -188,5 +187,5 @@ alias pg18-start='docker start postgresql18'
 alias pg18-restart='docker restart postgresql18'
 alias pg18-logs='docker logs -f postgresql18'
 alias pg18-shell='docker exec -it postgresql18 bash'
-alias pg18-psql='docker exec -it postgresql18 psql -U postgres'
+alias pg18-psql='docker exec -it postgresql18 sh -c '\''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
 alias pg18-status='docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql18'

@@ -27,7 +27,7 @@
 services:
 
   postgresql17_init:
-    image: busybox:latest
+    image: busybox:1
     user: "0"
     profiles:
       - postgresql17
@@ -43,7 +43,7 @@ services:
       - postgresql17_log:/mnt/log
 
   postgresql17:
-    image: postgres:17.4
+    image: postgres:17
     container_name: postgresql17
     hostname: postgresql17
     restart: no
@@ -87,4 +87,3 @@ volumes:
     name: postgresql17_backup
   postgresql17_log:
     name: postgresql17_log
-
