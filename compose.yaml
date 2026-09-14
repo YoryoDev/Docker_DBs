@@ -1,4 +1,4 @@
-# Root mode requires all eight .env files before profile selection.
+# Root mode requires all seven .env files before profile selection.
 # For a single configured engine, use its standalone Compose file (see README).
 include:
   - path: ./mssql2025/compose.yaml
@@ -15,5 +15,3 @@ include:
     env_file: ./mysql/.env
   - path: ./mongodb/compose.yaml
     env_file: ./mongodb/.env
-  - path: ./oracle19c/compose.yaml
-    env_file: ./oracle19c/.env

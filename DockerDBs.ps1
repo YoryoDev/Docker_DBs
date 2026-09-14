@@ -31,14 +31,14 @@ function Show-DDBSContainers {
     docker ps -a `
         --filter 'name=mariadb' --filter 'name=mongodb8' `
         --filter 'name=sqlserver22' --filter 'name=sqlserver25' `
-        --filter 'name=mysql8' --filter 'name=oracle19c' `
+        --filter 'name=mysql8' `
         --filter 'name=postgresql17' --filter 'name=postgresql18' `
         --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 }
 Set-Alias ddbs-ps Show-DDBSContainers
 
 function Show-DDBSImages {
-    docker images | Select-String "mariadb|mongo|mssql|mysql|oracle|postgres"
+    docker images | Select-String "mariadb|mongo|mssql|mysql|postgres"
 }
 Set-Alias ddbs-images Show-DDBSImages
 
@@ -65,9 +65,6 @@ function Show-DDBSHelp {
     Write-Host "  ╠══════════════╬═══════════════════════════════════════════════════╣"
     Write-Host "  ║  MYSQL 8.4   ║  mysql-up/down/stop/start/restart                ║"
     Write-Host "  ║  :3306       ║  mysql-logs  mysql-shell  mysql-client  mysql-status ║"
-    Write-Host "  ╠══════════════╬═══════════════════════════════════════════════════╣"
-    Write-Host "  ║  ORACLE 19c  ║  ora-up/down/stop/start/restart                  ║"
-    Write-Host "  ║  :1521/:5500 ║  ora-logs  ora-shell  ora-sysdba  ora-status     ║"
     Write-Host "  ╠══════════════╬═══════════════════════════════════════════════════╣"
     Write-Host "  ║  POSTGRES 17 ║  pg17-up/down/stop/start/restart                 ║"
     Write-Host "  ║  :5433       ║  pg17-logs  pg17-shell  pg17-psql  pg17-status   ║"
@@ -153,21 +150,6 @@ function mysql-logs     { docker logs -f mysql8 @args }
 function mysql-shell    { docker exec -it mysql8 bash @args }
 function mysql-client   { docker exec -it mysql8 mysql -u root -p @args }
 function mysql-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" mysql8 @args }
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ORACLE 19c  |  container: oracle19c  |  puertos: 1521 (SQL), 5500 (EM)
-# ══════════════════════════════════════════════════════════════════════════════
-function Invoke-OraUp   { Invoke-DDBSProject oracle19c oracle19c up -d @args }
-function Invoke-OraDown { Invoke-DDBSProject oracle19c oracle19c down @args }
-Set-Alias ora-up       Invoke-OraUp
-Set-Alias ora-down     Invoke-OraDown
-function ora-stop     { docker stop oracle19c @args }
-function ora-start    { docker start oracle19c @args }
-function ora-restart  { docker restart oracle19c @args }
-function ora-logs     { docker logs -f oracle19c @args }
-function ora-shell    { docker exec -it oracle19c bash @args }
-function ora-sysdba   { docker exec -it oracle19c sqlplus / as sysdba @args }
-function ora-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" oracle19c @args }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # POSTGRESQL 17  |  container: postgresql17  |  puerto: 5433

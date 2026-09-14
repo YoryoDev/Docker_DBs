@@ -19,7 +19,6 @@ Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desar
 - [Configuración avanzada](#configuración-avanzada)
 - [Gestión de datos](#gestión-de-datos)
 - [Nota: SQL Server y collation personalizada](#nota-sql-server-y-collation-personalizada)
-- [Nota: Oracle 19c Enterprise Edition](#nota-oracle-19c-enterprise-edition)
 
 ---
 
@@ -34,9 +33,8 @@ Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desar
 | `mysql` | MySQL 8.4 LTS | `mysql:8.4` | `3306` | `utf8mb4_unicode_ci` |
 | `mariadb` | MariaDB 11.4 LTS | `mariadb:11.4` | `3307` | `utf8mb4_unicode_ci` |
 | `mongodb` | MongoDB 8.0 | `mongo:8.0` | `27017` | — |
-| `oracle19c` | Oracle 19c EE | `container-registry.oracle.com/database/enterprise:19.3.0.0` | `1521` / `5500` | `AL32UTF8` |
 
-Las imágenes provienen del fabricante o de Docker Official Images. Las etiquetas flotan dentro de la línea indicada, no hacia otra versión mayor; PostgreSQL usa la variante estándar, no Alpine. Los auxiliares usan `busybox:1`. Oracle es una excepción: se conserva la referencia existente hasta verificar una alternativa oficial de mantenimiento **19c Enterprise Edition**; no se ha confirmado su disponibilidad actual ni una etiqueta flotante 19c.
+Las imágenes provienen del fabricante o de Docker Official Images. Las etiquetas flotan dentro de la línea indicada, no hacia otra versión mayor; PostgreSQL usa la variante estándar, no Alpine. Los auxiliares usan `busybox:1`.
 
 Fuentes: [tags de Microsoft](https://mcr.microsoft.com/v2/mssql/server/tags/list), catálogo oficial de [PostgreSQL](https://github.com/docker-library/official-images/blob/master/library/postgres), [MySQL](https://github.com/docker-library/official-images/blob/master/library/mysql), [MariaDB](https://github.com/docker-library/official-images/blob/master/library/mariadb), [MongoDB](https://github.com/docker-library/official-images/blob/master/library/mongo) y [BusyBox](https://github.com/docker-library/official-images/blob/master/library/busybox).
 
@@ -69,10 +67,10 @@ docker compose -f postgresql18/compose.yaml --env-file postgresql18/.env --profi
 
 Este flujo y los helpers solo necesitan el `.env` del motor elegido. Desde su carpeta también funciona `docker compose --env-file .env --profile postgresql18 up -d`. Sin perfil, los servicios quedan desactivados.
 
-**Flujo raíz:** el `compose.yaml` raíz incluye los ocho proyectos y carga sus `.env` antes de seleccionar perfiles. Para usar los comandos raíz, preparar **todos** los `.env` (incluido PostgreSQL 17), aunque se arranque un único motor:
+**Flujo raíz:** el `compose.yaml` raíz incluye los siete proyectos y carga sus `.env` antes de seleccionar perfiles. Para usar los comandos raíz, preparar **todos** los `.env` (incluido PostgreSQL 17), aunque se arranque un único motor:
 
 ```bash
-for service in mssql2022 mssql2025 postgresql17 postgresql18 mysql mariadb mongodb oracle19c; do
+for service in mssql2022 mssql2025 postgresql17 postgresql18 mysql mariadb mongodb; do
   test -e "$service/.env" || cp "$service/.env.example" "$service/.env"
 done
 ```
@@ -197,7 +195,7 @@ ddbs-help   # cheatsheet completo
 
 ### Con Docker Compose directo (desde la raíz)
 
-Requiere los ocho `.env` preparados como se explica en la instalación. Los perfiles no evitan cargar los archivos incluidos.
+Requiere los siete `.env` preparados como se explica en la instalación. Los perfiles no evitan cargar los archivos incluidos.
 
 ```bash
 # Levantar un servicio
@@ -208,7 +206,6 @@ docker compose --profile mariadb up -d
 docker compose --profile mongodb up -d
 docker compose --profile mssql2025 up -d
 docker compose --profile mssql2022 up -d
-docker compose --profile oracle19c up -d
 
 # Levantar varios servicios a la vez
 docker compose --profile postgresql18 --profile mysql up -d
@@ -222,7 +219,6 @@ docker compose \
   --profile mongodb \
   --profile mssql2025 \
   --profile mssql2022 \
-  --profile oracle19c \
   up -d
 ```
 
@@ -265,11 +261,8 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
 | MySQL 8 | `BIND_ADDRESS` | `3306` | `MYSQL_USER` / `root` | — |
 | MariaDB 11 | `BIND_ADDRESS` | `3307` | `MARIADB_USER` / `root` | Puerto 3307 para no colisionar con MySQL |
 | MongoDB 8 | `BIND_ADDRESS` | `27017` | `MONGO_ROOT_USER` | Auth habilitado |
-| Oracle 19c | `BIND_ADDRESS` | `1521` | `sys` / `system` / `pdbadmin` | SID: `ORCLCDB`, PDB: `ORCLPDB1` |
 
 > **SSMS**: Usá el formato `IP,puerto` (ej: `192.168.1.100,1434`).
-
-> **Oracle OEM Express**: `https://BIND_ADDRESS:5500/em`
 
 ---
 
@@ -282,7 +275,6 @@ Todos los servicios usan init containers que preparan el entorno antes de que ar
 | Motor | Init containers | Función |
 |---|---|---|
 | SQL Server / PostgreSQL / MySQL / MariaDB / MongoDB | `<servicio>_init` (busybox) | Crea directorios en los named volumes y aplica `chown` al UID del motor |
-| Oracle 19c | `oracle19c_init` | Crea directorios y aplica `chown`; el login se hace antes en el host |
 
 Los auxiliares de permisos usan root. Los entrypoints oficiales pueden comenzar como root y cambiar al usuario del motor; omitir `user: "0"` no demuestra por sí solo que todo el arranque sea sin privilegios.
 
@@ -292,7 +284,6 @@ Los auxiliares de permisos usan root. Los entrypoints oficiales pueden comenzar 
 |---|---|
 | SQL Server | `10001` (usuario `mssql`) |
 | PostgreSQL / MySQL / MariaDB / MongoDB | `999` |
-| Oracle 19c | `54321` (usuario `oracle`) |
 
 ### Named Volumes (portabilidad cross-platform)
 
@@ -325,7 +316,6 @@ Todos los servicios tienen `deploy.resources` configurado. Los servicios se ejec
 | MySQL 8.4 | 1.5 GB | 256 MB | 1.5 |
 | MariaDB 11.4 | 1.5 GB | 256 MB | 1.5 |
 | MongoDB 8.0 | 1.0 GB | 256 MB | 1.0 |
-| Oracle 19c | 2.0 GB | 512 MB | 2.0 |
 
 ### Configuración interna de memoria
 
@@ -337,9 +327,6 @@ Todos los servicios tienen `deploy.resources` configurado. Los servicios se ejec
 | MySQL 8.4 | `innodb_buffer_pool_size` | 256 MB | ~17% de 1.5 GB |
 | MariaDB 11.4 | `innodb_buffer_pool_size` | 256 MB | ~17% de 1.5 GB |
 | MongoDB 8.0 | `cacheSizeGB` | 0.5 GB | ~50% de 1.0 GB (WiredTiger cache) |
-| Oracle 19c | `INIT_SGA_SIZE` | 768 MB | SGA del motor |
-| Oracle 19c | `INIT_PGA_SIZE` | 256 MB | PGA del motor |
-| Oracle 19c | **Total engine** | 1024 MB | ~50% de 2.0 GB |
 
 ### Reglas para ajustar memoria
 
@@ -352,7 +339,6 @@ Si cambiás el límite de RAM del contenedor, ajustá la configuración interna 
 | SQL Server | `memorylimitmb` | ~80-85% del container limit (dejar ~200MB para OS) |
 | MySQL / MariaDB | `innodb_buffer_pool_size` | ~25% de la RAM del contenedor |
 | MongoDB | `cacheSizeGB` | ~50% de la RAM del contenedor |
-| Oracle | `INIT_SGA_SIZE` + `INIT_PGA_SIZE` | ~50% de la RAM del contenedor |
 
 ---
 
@@ -368,8 +354,6 @@ Los archivos de configuración de cada motor se encuentran en `<servicio>/config
 | MySQL | `my.cnf` | `innodb_buffer_pool_size`, `max_connections`, binary log |
 | MariaDB | `my.cnf` | Igual a MySQL + parámetros Aria |
 | MongoDB | `mongod.conf` | `wiredTiger.cacheSizeGB`, `net.tls`, `operationProfiling` |
-| Oracle 19c | `config/setup/*.sql` | Scripts post-creación (una sola vez) |
-| Oracle 19c | `config/startup/*.sql` | Scripts post-arranque (cada inicio) |
 
 ### Aplicar cambios de configuración
 
@@ -439,83 +423,6 @@ SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`).
 
 ---
 
-## Nota: Oracle 19c Enterprise Edition
-
-### Requisito previo (solo la primera vez)
-
-La autenticación debe realizarse **en el host antes de `pull` o `up`**. Un contenedor dependiente no puede autenticar una descarga previa a su propio arranque. Ya no se monta el socket Docker ni la configuración del cliente en un contenedor de login.
-
-1. Crea o inicia sesión en [container-registry.oracle.com](https://container-registry.oracle.com).
-2. Navega a **Database → enterprise** y acepta la licencia OTN.
-3. En el portal ve a tu perfil → **"Auth Token"** → genera una secret key.
-   > Usa la **secret key** como contraseña, **no** la contraseña de tu cuenta SSO.
-4. Inicia sesión desde la terminal del host e introduce las credenciales cuando se soliciten:
-
-```bash
-docker login container-registry.oracle.com
-```
-
-5. Configura `oracle19c/.env` y usa el flujo independiente:
-
-```bash
-docker compose -f oracle19c/compose.yaml --env-file oracle19c/.env --profile oracle19c up -d
-```
-
-Las antiguas variables `ORACLE_REGISTRY_USER` y `ORACLE_REGISTRY_PASS` ya no se consumen, aunque aparezcan en plantillas anteriores; no guardarlas en nuevos `.env`. No se modifican los `.env` existentes.
-
-**Excepción de versión:** se conserva `enterprise:19.3.0.0`, sin afirmar que sea la última actualización 19c ni que su descarga esté disponible. La consulta del portal no permitió verificar una etiqueta flotante. Confirmar la disponibilidad y licencia en [Oracle Container Registry](https://container-registry.oracle.com) antes de descargar. Oracle documenta también [construcciones y parches de 19c EE](https://github.com/oracle/docker-images/tree/main/OracleDatabase/SingleInstance), pero requieren binarios/licencias y no equivalen a una etiqueta publicada. No sustituir por `latest`, XE o Free.
-
-### Primer arranque (~15-20 minutos)
-
-La primera vez que levantes el contenedor, Oracle creará la base de datos desde cero. El health check tiene `start_period: 900s` para acomodar este proceso. **No interrumpas el contenedor durante la creación.**
-
-```bash
-# Monitorear el progreso del primer arranque
-docker compose --profile oracle19c logs -f oracle19c
-# Verás "DATABASE IS READY TO USE!" cuando termine
-```
-
-### Memoria y recursos
-
-Oracle requiere un mínimo de 4 GB de RAM según la documentación oficial. En este entorno de lab está ajustado a **2 GB** (SGA 768 MB + PGA 256 MB). No es recomendable ejecutarlo simultáneamente con todos los demás motores.
-
-### Conexión
-
-```bash
-# Como SYSDBA (dentro del contenedor)
-docker exec -it oracle19c sqlplus / as sysdba
-
-# Como pdbadmin a la PDB
-docker exec -it oracle19c sqlplus pdbadmin/<pass>@ORCLPDB1
-
-# Desde un cliente externo (SQL Developer, DBeaver, DataGrip)
-# Host: BIND_ADDRESS   Puerto: 1521
-# SID: ORCLCDB   Service Name: ORCLPDB1
-
-# OEM Express (navegador)
-# https://BIND_ADDRESS:5500/em
-```
-
-### Configuración
-
-Oracle 19c en contenedor se configura mediante variables de entorno en la creación inicial (definidas en `.env`). Los ajustes posteriores van en:
-
-- `config/setup/*.sql` — ejecutados una sola vez tras la creación de la base.
-- `config/startup/*.sql` — ejecutados en cada arranque del contenedor.
-
-### Scripts internos del contenedor
-
-```bash
-# Cambiar contraseña de SYS/SYSTEM/PDBADMIN
-docker exec oracle19c ./setPassword.sh <nueva_contraseña>
-
-# Reiniciar la instancia sin matar el contenedor
-docker exec oracle19c /home/oracle/shutDown.sh
-docker exec oracle19c /home/oracle/startUp.sh
-```
-
----
-
 ## Estructura del repositorio
 
 ```
@@ -556,17 +463,11 @@ Docker_DBs/
 │   ├── .env.example
 │   └── config/
 │       └── my.cnf
-├── mongodb/
-│   ├── compose.yaml
-│   ├── .env.example
-│   └── config/
-│       └── mongod.conf
-└── oracle19c/
+└── mongodb/
     ├── compose.yaml
     ├── .env.example
     └── config/
-        ├── setup/       ← scripts post-creación (una sola vez)
-        └── startup/     ← scripts post-arranque (cada inicio)
+        └── mongod.conf
 ```
 
 > **Nota**: Los datos, backups y logs se almacenan en Docker named volumes (no en el repositorio). Usá `docker volume ls` para verlos.

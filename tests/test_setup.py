@@ -13,7 +13,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 PROJECTS = {
     "mdb": "mariadb", "mongo": "mongodb", "sql22": "mssql2022",
-    "sql25": "mssql2025", "mysql": "mysql", "ora": "oracle19c",
+    "sql25": "mssql2025", "mysql": "mysql",
     "pg17": "postgresql17", "pg18": "postgresql18",
 }
 
@@ -112,7 +112,10 @@ class SetupTests(unittest.TestCase):
         services = json.loads(result.stdout)["services"]
         self.assertEqual(services["postgresql"]["environment"]["POSTGRES_USER"], "dummy_postgresql18")
         self.assertEqual(services["postgresql17"]["environment"]["POSTGRES_USER"], "dummy_postgresql17")
-        self.assertNotIn("oracle19c_login", services)
+        expected_services = {"postgresql" if folder == "postgresql18" else folder
+                             for folder in PROJECTS.values()}
+        expected_services.update(f"{folder}_init" for folder in PROJECTS.values())
+        self.assertEqual(set(services), expected_services)
         # Root requires every env file even with only one selected profile.
         for folder in PROJECTS.values():
             if folder != "postgresql18":
