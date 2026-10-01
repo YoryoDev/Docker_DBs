@@ -1,17 +1,22 @@
 # ─── Docker DBs — Bash Aliases ────────────────────────────────────────────────
 # INSTALACIÓN:
 # Load this file explicitly from ~/.bashrc (or ~/.zshrc).
-# Set DDBS_HOME before sourcing; do not overwrite existing alias files.
+# DDBS_HOME is optional; do not overwrite existing alias files.
 #
-# Requisito para up/down: el repo debe estar en ~/Docker_DBs
-# (convención por defecto). Si lo clonaste en otra ruta, añade esto
-# a tu ~/.bashrc ANTES de que se carguen los aliases:
+# Por defecto se busca primero en ~/Workspace/Docker_DBs y luego en ~/Docker_DBs.
+# Si lo clonaste en otra ruta, añade esto a tu ~/.bashrc ANTES de cargar aliases:
 #       export DDBS_HOME=/ruta/al/repo/Docker_DBs
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Directorio raíz del repo.
-# Por defecto usa ~/Docker_DBs; sobreescribe con: export DDBS_HOME=/otra/ruta
-_DDBS="${DDBS_HOME:-$HOME/Docker_DBs}"
+# DDBS_HOME tiene prioridad; si no está definido, prefiere Workspace.
+if [[ -n "${DDBS_HOME:-}" ]]; then
+  _DDBS="$DDBS_HOME"
+elif [[ -d "$HOME/Workspace/Docker_DBs" ]]; then
+  _DDBS="$HOME/Workspace/Docker_DBs"
+else
+  _DDBS="$HOME/Docker_DBs"
+fi
 # Helper interno: ejecuta docker compose en el subdirectorio de cada proyecto
 # Cada proyecto usa su propio compose.yaml y .env — sin depender del compose.yaml raíz
 # Uso: _ddbs_project <subdir> <profile> <comando...>

@@ -7,12 +7,17 @@
 #        source ~/.config/fish/conf.d/docker_dbs.fish
 #      O simplemente abrir una nueva terminal.
 #
-# Requisito: el repo debe estar en ~/Docker_DBs (convención por defecto).
+# Por defecto se busca primero en ~/Workspace/Docker_DBs y luego en ~/Docker_DBs.
 # Si lo clonaste en otra ruta, definí antes:
 #   set -gx DDBS_HOME /ruta/al/repo/Docker_DBs
 # ──────────────────────────────────────────────────────────────────────────────
 
-set -l _DDBS (if test -n "$DDBS_HOME"; echo "$DDBS_HOME"; else; echo "$HOME/Docker_DBs"; end)
+set -l _DDBS "$HOME/Docker_DBs"
+if set -q DDBS_HOME; and test -n "$DDBS_HOME"
+    set _DDBS "$DDBS_HOME"
+else if test -d "$HOME/Workspace/Docker_DBs"
+    set _DDBS "$HOME/Workspace/Docker_DBs"
+end
 
 function _ddbs_project --inherit-variable _DDBS
     set -l project_dir "$_DDBS/$argv[1]"

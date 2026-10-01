@@ -1,15 +1,21 @@
 # ─── Docker DBs — PowerShell Aliases ─────────────────────────────────────────
 # Load with dot-sourcing in the current session and in $PROFILE:
-#   $env:DDBS_HOME = Join-Path $HOME "Docker_DBs"
+#   $env:DDBS_HOME = Join-Path $HOME "Workspace\Docker_DBs"
 #   . (Join-Path $env:DDBS_HOME "DockerDBs.ps1")
 # Preserve any existing profile content; see README for setup.
 #
-# Requisito: el repo debe estar en ~/Docker_DBs (convención por defecto).
-# Si lo clonaste en otra ruta, definí antes de cargar el script:
+# DDBS_HOME es opcional. Por defecto se busca primero en ~/Workspace/Docker_DBs
+# y luego en ~/Docker_DBs. Si lo clonaste en otra ruta, definí antes:
 #   $env:DDBS_HOME = "C:\ruta\al\repo\Docker_DBs"
 # ──────────────────────────────────────────────────────────────────────────────
 
-$script:DDBS = if ($env:DDBS_HOME) { $env:DDBS_HOME } else { "$HOME\Docker_DBs" }
+$script:DDBS = if ($env:DDBS_HOME) {
+    $env:DDBS_HOME
+} elseif (Test-Path -LiteralPath (Join-Path $HOME "Workspace\Docker_DBs") -PathType Container) {
+    Join-Path $HOME "Workspace\Docker_DBs"
+} else {
+    Join-Path $HOME "Docker_DBs"
+}
 
 function Invoke-DDBSProject {
     param(
