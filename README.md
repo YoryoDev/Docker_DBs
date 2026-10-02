@@ -4,6 +4,19 @@ Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desar
 
 **Uso**: Los servicios se ejecutan de forma independiente — no todos a la vez — para no consumir recursos innecesarios. Cada usuario levanta solo lo que necesita en cada momento.
 
+## Resumen de cambios recientes
+
+Se ha revisado y consolidado la base del proyecto en varias direcciones:
+
+- Actualización de versiones de referencia: PostgreSQL 18/17 y MongoDB 8.0 con imágenes explícitas y perfiles estables.
+- Corrección de la resolución de `DDBS_HOME` para rutas no estándar en Bash, PowerShell y Fish.
+- Normalización de aliases y comandos para que el flujo de trabajo sea equivalente en las tres shells compatibles.
+- Limpieza de componentes no mantenidos: eliminación del servicio de Oracle y simplificación del stack.
+- Fortalecimiento del proyecto con validaciones automáticas (`tests/test_setup.py`) para comprobar perfiles, rutas con espacios, y compatibilidad de comandos.
+- Revisión de seguridad y portabilidad: `BIND_ADDRESS` por motor, named volumes, init containers y documentación de recursos.
+
+Este repositorio mantiene un único README principal, ya que cada motor se gestiona desde su propio subdirectorio con `.env.example` y configuración específica; no hay documentación separada por servicio.
+
 ---
 
 ## Tabla de contenidos
