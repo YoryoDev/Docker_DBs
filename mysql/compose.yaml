@@ -32,7 +32,7 @@ x-podman:
 services:
 
   mysql_init:
-    image: busybox:1
+    image: docker.io/library/busybox:1
     user: "0"
     profiles:
       - mysql
@@ -48,7 +48,7 @@ services:
       - mysql_log:/mnt/log
 
   mysql:
-    image: mysql:8.4
+    image: docker.io/library/mysql:8.4
     container_name: mysql8
     hostname: mysql8
     restart: "no"

@@ -32,7 +32,7 @@ x-podman:
 services:
 
   postgresql17_init:
-    image: busybox:1
+    image: docker.io/library/busybox:1
     user: "0"
     profiles:
       - postgresql17
@@ -48,7 +48,7 @@ services:
       - postgresql17_log:/mnt/log
 
   postgresql17:
-    image: postgres:17.11-bookworm
+    image: docker.io/library/postgres:17.11-bookworm
     container_name: postgresql17
     hostname: postgresql17
     restart: "no"

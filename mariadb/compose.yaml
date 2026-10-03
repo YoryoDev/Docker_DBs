@@ -32,7 +32,7 @@ x-podman:
 services:
 
   mariadb_init:
-    image: busybox:1
+    image: docker.io/library/busybox:1
     user: "0"
     profiles:
       - mariadb
@@ -48,7 +48,7 @@ services:
       - mariadb_log:/mnt/log
 
   mariadb:
-    image: mariadb:11.4
+    image: docker.io/library/mariadb:11.4
     container_name: mariadb
     hostname: mariadb
     restart: "no"

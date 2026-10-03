@@ -32,7 +32,7 @@ x-podman:
 services:
 
   mongodb_init:
-    image: busybox:1
+    image: docker.io/library/busybox:1
     user: "0"
     profiles:
       - mongodb
@@ -48,7 +48,7 @@ services:
       - mongodb_log:/mnt/log
 
   mongodb:
-    image: mongo:8.0-noble
+    image: docker.io/library/mongo:8.0-noble
     container_name: mongodb8
     hostname: mongodb8
     restart: "no"

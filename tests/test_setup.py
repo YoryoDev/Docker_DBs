@@ -61,8 +61,25 @@ class SetupTests(unittest.TestCase):
             invocation = f'eval "{alias_prefix}pg18-psql -c \'SELECT 1\'"'
             result = self.run_command(command + [source + setup + invocation])
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"', result.stdout)
+            self.assertIn(
+                'PGPASSWORD="$POSTGRES_PASSWORD" PSQL_PAGER=cat exec psql -h localhost '
+                '-U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"',
+                result.stdout,
+            )
             self.assertEqual(result.stdout.splitlines()[-2:], ["-c", "SELECT 1"])
+            invocation = f'eval "{alias_prefix}sql25-client -Q \'SELECT 1\'"'
+            result = self.run_command(command + [source + setup + invocation])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('SQLCMDPASSWORD="$MSSQL_SA_PASSWORD"', result.stdout)
+            self.assertEqual(result.stdout.splitlines()[-2:], ["-Q", "SELECT 1"])
+            for client, password_name in (
+                    ("mdb-client", "MARIADB_ROOT_PASSWORD"),
+                    ("mysql-client", "MYSQL_ROOT_PASSWORD")):
+                invocation = f'eval "{alias_prefix}{client} -Nse \'SELECT 1\'"'
+                result = self.run_command(command + [source + setup + invocation])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(f'MYSQL_PWD="${password_name}"', result.stdout)
+                self.assertEqual(result.stdout.splitlines()[-2:], ["-Nse", "SELECT 1"])
             failure = (f'{runtime}() {{ return 23; }}; ' if shell == "bash"
                        else f'function {runtime}; return 23; end; ')
             result = self.run_command(command + [
@@ -213,10 +230,61 @@ class SetupTests(unittest.TestCase):
             text = (ROOT / folder / "compose.yaml").read_text()
             self.assertRegex(text, r"(?m)^x-podman:\n  in_pod: false$", folder)
 
+    def test_docker_hub_images_are_fully_qualified(self):
+        for folder in PROJECTS.values():
+            text = (ROOT / folder / "compose.yaml").read_text()
+            for image in re.findall(r"^\s+image:\s+(\S+)$", text, re.M):
+                if not image.startswith("mcr.microsoft.com/"):
+                    self.assertTrue(image.startswith("docker.io/library/"), (folder, image))
+
     def test_sql_server_has_shutdown_grace_period(self):
         for folder in ("mssql2022", "mssql2025"):
             text = (ROOT / folder / "compose.yaml").read_text()
             self.assertIn("    stop_grace_period: 60s\n", text, folder)
+
+    def test_sql_server_forwards_shutdown_signals(self):
+        for folder in ("mssql2022", "mssql2025"):
+            text = (ROOT / folder / "compose.yaml").read_text()
+            self.assertIn(
+                '    entrypoint: ["/bin/bash", "/usr/local/bin/launch_sqlservr.sh"]',
+                text,
+                folder,
+            )
+            self.assertIn('    command: ["/opt/mssql/bin/sqlservr"]', text, folder)
+            self.assertIn(
+                "./config/launch_sqlservr.sh:/usr/local/bin/launch_sqlservr.sh:ro,Z",
+                text,
+                folder,
+            )
+            wrapper = (ROOT / folder / "config" / "launch_sqlservr.sh").read_text()
+            self.assertIn("trap 'forward_signal TERM' TERM", wrapper, folder)
+            self.assertIn('kill "-$signal" "$sqlservr_pid"', wrapper, folder)
+
+    def test_sql_server_helpers_use_shutdown_grace_period(self):
+        expectations = {
+            ".bash_aliases": (
+                "docker stop --time 60 sqlserver25",
+                "docker restart --time 60 sqlserver25",
+                "_pddbs_podman stop --time 60 sqlserver25",
+                "_pddbs_podman restart --time 60 sqlserver25",
+            ),
+            "docker_dbs.fish": (
+                "docker stop --time 60 sqlserver25",
+                "docker restart --time 60 sqlserver25",
+                "_pddbs_podman stop --time 60 sqlserver25",
+                "_pddbs_podman restart --time 60 sqlserver25",
+            ),
+            "DockerDBs.ps1": (
+                "docker stop --time 60 sqlserver25",
+                "docker restart --time 60 sqlserver25",
+                "Invoke-DDBSPodman stop --time 60 sqlserver25",
+                "Invoke-DDBSPodman restart --time 60 sqlserver25",
+            ),
+        }
+        for filename, commands in expectations.items():
+            text = (ROOT / filename).read_text()
+            for command in commands:
+                self.assertIn(command, text, filename)
 
     def test_persisted_identity_unchanged(self):
         for folder in PROJECTS.values():

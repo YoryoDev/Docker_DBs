@@ -43,13 +43,13 @@ Este repositorio mantiene un único README principal, ya que cada motor se gesti
 |---|---|---|---|---|
 | `mssql2025` | SQL Server 2025 | `mcr.microsoft.com/mssql/server:2025-latest` | `1433` | `Latin1_General_100_CI_AS_SC` |
 | `mssql2022` | SQL Server 2022 | `mcr.microsoft.com/mssql/server:2022-latest` | `1434` | `Latin1_General_100_CI_AS_SC` |
-| `postgresql` (perfil `postgresql18`) | PostgreSQL 18 | `postgres:18` | `5432` | — |
-| `postgresql17` | PostgreSQL 17 | `postgres:17` | `5433` | — |
-| `mysql` | MySQL 8.4 LTS | `mysql:8.4` | `3306` | `utf8mb4_unicode_ci` |
-| `mariadb` | MariaDB 11.4 LTS | `mariadb:11.4` | `3307` | `utf8mb4_unicode_ci` |
-| `mongodb` | MongoDB 8.0 | `mongo:8.0` | `27017` | — |
+| `postgresql` (perfil `postgresql18`) | PostgreSQL 18 | `docker.io/library/postgres:18.6-bookworm` | `5432` | — |
+| `postgresql17` | PostgreSQL 17 | `docker.io/library/postgres:17.11-bookworm` | `5433` | — |
+| `mysql` | MySQL 8.4 LTS | `docker.io/library/mysql:8.4` | `3306` | `utf8mb4_unicode_ci` |
+| `mariadb` | MariaDB 11.4 LTS | `docker.io/library/mariadb:11.4` | `3307` | `utf8mb4_unicode_ci` |
+| `mongodb` | MongoDB 8.0 | `docker.io/library/mongo:8.0-noble` | `27017` | — |
 
-Las imágenes provienen del fabricante o de Docker Official Images. Las etiquetas flotan dentro de la línea indicada, no hacia otra versión mayor; PostgreSQL usa la variante estándar, no Alpine. Los auxiliares usan `busybox:1`.
+Las imágenes provienen del fabricante o de Docker Official Images. Las referencias de Docker Hub están completas para no depender de registros de búsqueda configurados en Podman. Las etiquetas flotan dentro de la línea indicada, no hacia otra versión mayor; PostgreSQL usa la variante estándar, no Alpine. Los auxiliares usan `docker.io/library/busybox:1`.
 
 Fuentes: [tags de Microsoft](https://mcr.microsoft.com/v2/mssql/server/tags/list), catálogo oficial de [PostgreSQL](https://github.com/docker-library/official-images/blob/master/library/postgres), [MySQL](https://github.com/docker-library/official-images/blob/master/library/mysql), [MariaDB](https://github.com/docker-library/official-images/blob/master/library/mariadb), [MongoDB](https://github.com/docker-library/official-images/blob/master/library/mongo) y [BusyBox](https://github.com/docker-library/official-images/blob/master/library/busybox).
 
@@ -68,9 +68,13 @@ Los mismos `compose.yaml` funcionan con ambos runtimes. Los mounts de configurac
 
 `podman compose` es un wrapper que delega en un proveedor externo. Los aliases `pod-*` usan siempre el Compose independiente de cada motor y funcionan con un proveedor que respete perfiles y `depends_on.condition: service_completed_successfully` (por ejemplo, `podman-compose` 1.5+ o Docker Compose v2). El orquestador raíz añade `include` con un `env_file` distinto por proyecto; `podman-compose` 1.5 no acepta ese formato, por lo que el flujo raíz bajo Podman requiere Docker Compose v2 como proveedor. Podman lo selecciona automáticamente si está disponible, o puede fijarse con `PODMAN_COMPOSE_PROVIDER` apuntando al ejecutable correspondiente.
 
-Los proyectos independientes declaran `x-podman.in_pod: false`. `podman-compose` crea así contenedores independientes en la red Compose, en lugar de pods sin infra que pueden producir `rootless netns: kill network process: permission denied` al limpiar `pasta`. Docker Compose ignora esta extensión. Si el proyecto fue creado antes de incorporar esta opción, ejecutar una vez `pod-<motor>-down` y `pod-<motor>-up` para recrear sus contenedores; no agregar `-v`, porque los volúmenes contienen los datos persistentes.
+Los proyectos independientes declaran `x-podman.in_pod: false`. `podman-compose` crea así contenedores independientes en la red Compose, en lugar de pods sin infra. Además, en hosts Linux que tienen `slirp4netns`, los helpers `pod-*` cargan `podman-containers.conf` para evitar fallos de limpieza `rootless netns: kill network process: permission denied` observados con `pasta`; no modifican la configuración global del usuario. Si `slirp4netns` no está disponible, Podman conserva su backend predeterminado. Docker Compose ignora esta extensión y no lee esa configuración.
+
+`podman-compose` 1.5 convierte `depends_on` en una dependencia permanente `--requires`, que impide ejecutar `start` después de que un init container de una sola ejecución haya terminado. Los helpers `pod-*-up` detectan ese proveedor, ejecutan y validan primero el init, y después crean el motor con `--no-deps`. Con Docker Compose v2 mantienen el flujo Compose normal. Si el proyecto fue creado antes de incorporar este comportamiento, ejecutar una vez `pod-<motor>-down` y `pod-<motor>-up` para recrear sus contenedores; no agregar `-v`, porque los volúmenes contienen los datos persistentes.
 
 En macOS y Windows, iniciar primero la VM con `podman machine start`. Docker y Podman mantienen almacenes de contenedores y volúmenes separados: un volumen del mismo nombre en ambos runtimes **no contiene los mismos datos**. Elegir un runtime para cada base existente y no cambiar esperando reutilizar sus datos.
+
+MongoDB 8.0 no inicia sobre kernels Linux `6.19` a `7.0.13` debido a una incompatibilidad conocida de TCMalloc ([SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)). MongoDB recomienda actualizar a kernel `7.0.14` o posterior. No desactivar la comprobación ni degradar la imagen sobre un volumen existente.
 
 ---
 
@@ -200,6 +204,8 @@ pg18-up
 # Operación diaria
 sql25-stop
 sql25-start
+sql25-client -Q "SELECT @@VERSION"
+pg18-psql -c "SELECT version()"
 
 # Actualizar mantenimiento dentro de SQL Server 2025 (hacer respaldo primero)
 sql25-up --pull always
@@ -270,7 +276,9 @@ docker compose \
 | `logs -f` | Muestra los logs en tiempo real. |
 | `restart` | Reinicia el contenedor existente; no aplica cambios de imagen, variables ni definición Compose. |
 
-SQL Server 2022 y 2025 disponen de hasta 60 segundos para cerrar limpiamente antes de que el runtime envíe `SIGKILL`. Este período se guarda al crear el contenedor; después de actualizar la definición hay que recrearlo con `down` seguido de `up` para aplicarlo.
+SQL Server 2022 y 2025 disponen de hasta 60 segundos para cerrar limpiamente antes de que el runtime envíe `SIGKILL`. La definición Compose aplica ese período durante `down`; los helpers `stop` y `restart` también lo pasan explícitamente para mantener el mismo comportamiento con Docker y con proveedores como `podman-compose` que no lo guardan en el contenedor.
+
+Las imágenes recientes de SQL Server ejecutan `launch_sqlservr.sh`, que inicia el motor en segundo plano pero no le reenvía la señal de parada del contenedor ([mssql-docker#968](https://github.com/microsoft/mssql-docker/issues/968)). Los proyectos SQL Server montan un wrapper de compatibilidad que conserva la preparación oficial y reenvía `SIGTERM`/`SIGINT` al motor para evitar cierres por `SIGKILL` y recuperaciones innecesarias al arrancar.
 
 ### Estado de los contenedores
 

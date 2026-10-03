@@ -17,6 +17,17 @@ elif [[ -d "$HOME/Workspace/Docker_DBs" ]]; then
 else
   _DDBS="$HOME/Docker_DBs"
 fi
+
+# Usa el fallback rootless local solo cuando slirp4netns está instalado.
+# Evita modificar la configuración global de Podman del usuario.
+_pddbs_podman() {
+  if command -v slirp4netns >/dev/null 2>&1; then
+    CONTAINERS_CONF="$_DDBS/podman-containers.conf" podman "$@"
+  else
+    podman "$@"
+  fi
+}
+
 # Helper interno: ejecuta docker compose en el subdirectorio de cada proyecto
 # Cada proyecto usa su propio compose.yaml y .env — sin depender del compose.yaml raíz
 # Uso: _ddbs_project <subdir> <profile> <comando...>
@@ -36,10 +47,44 @@ _pddbs_project() {
   local project_dir="$_DDBS/$1"
   local profile="$2"
   shift 2
-  podman compose -f "${project_dir}/compose.yaml" \
+  _pddbs_podman compose -f "${project_dir}/compose.yaml" \
     --env-file "${project_dir}/.env" \
     --profile "${profile}" \
     "$@"
+}
+
+# podman-compose convierte depends_on en --requires, lo que impide volver a
+# iniciar un servicio cuando su init container ya terminó. Ejecuta el init,
+# espera su salida correcta y crea el servicio sin esa dependencia permanente.
+_pddbs_up() {
+  local project="$1"
+  local profile="$2"
+  local init_service="$3"
+  local main_service="$4"
+  local provider_output init_id init_exit
+  shift 4
+
+  provider_output="$(_pddbs_podman compose version 2>&1)"
+  if [[ "$provider_output" != *podman-compose* ]]; then
+    _pddbs_project "$project" "$profile" up -d "$@"
+    return
+  fi
+
+  _pddbs_project "$project" "$profile" up -d "$@" "$init_service" || return
+  init_id="$(_pddbs_podman ps -aq \
+    --filter "label=io.podman.compose.project=$project" \
+    --filter "label=io.podman.compose.service=$init_service" | head -n 1)"
+  if [[ -z "$init_id" ]]; then
+    echo "No se encontró el init container de $project." >&2
+    return 1
+  fi
+  _pddbs_podman wait "$init_id" >/dev/null || return
+  init_exit="$(_pddbs_podman inspect --format '{{.State.ExitCode}}' "$init_id")" || return
+  if [[ "$init_exit" != 0 ]]; then
+    echo "El init container de $project terminó con código $init_exit." >&2
+    return "$init_exit"
+  fi
+  _pddbs_project "$project" "$profile" up -d --no-deps "$@" "$main_service"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -61,7 +106,7 @@ _ddbs_ps() {
 alias ddbs-ps='_ddbs_ps'
 
 _pddbs_ps() {
-  podman ps -a \
+  _pddbs_podman ps -a \
     --filter 'name=mariadb' \
     --filter 'name=mongodb8' \
     --filter 'name=sqlserver22' \
@@ -75,7 +120,7 @@ alias pod-ddbs-ps='_pddbs_ps'
 
 # Listar imágenes de bases de datos
 alias ddbs-images='docker images | grep -E "mariadb|mongo|mssql|mysql|postgres"'
-alias pod-ddbs-images='podman images | grep -E "mariadb|mongo|mssql|mysql|postgres"'
+alias pod-ddbs-images='_pddbs_podman images | grep -E "mariadb|mongo|mssql|mysql|postgres"'
 
 # Ayuda: muestra todos los aliases disponibles
 _ddbs_help() {
@@ -124,7 +169,7 @@ alias mdb-start='docker start mariadb'
 alias mdb-restart='docker restart mariadb'
 alias mdb-logs='docker logs -f mariadb'
 alias mdb-shell='docker exec -it mariadb bash'
-alias mdb-client='docker exec -it mariadb mariadb -u root -p'
+alias mdb-client='docker exec -it mariadb sh -c '\''MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -u root "$@"'\'' sh'
 alias mdb-status='docker inspect --format "{{.Name}}: {{.State.Status}}" mariadb'
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -145,12 +190,12 @@ alias mongo-status='docker inspect --format "{{.Name}}: {{.State.Status}}" mongo
 # ══════════════════════════════════════════════════════════════════════════════
 alias sql22-up='_ddbs_project mssql2022 mssql2022 up -d'
 alias sql22-down='_ddbs_project mssql2022 mssql2022 down'
-alias sql22-stop='docker stop sqlserver22'
+alias sql22-stop='docker stop --time 60 sqlserver22'
 alias sql22-start='docker start sqlserver22'
-alias sql22-restart='docker restart sqlserver22'
+alias sql22-restart='docker restart --time 60 sqlserver22'
 alias sql22-logs='docker logs -f sqlserver22'
 alias sql22-shell='docker exec -it sqlserver22 bash'
-alias sql22-client='docker exec -it sqlserver22 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No'
+alias sql22-client='docker exec -it sqlserver22 sh -c '\''SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"'\'' sh'
 alias sql22-status='docker inspect --format "{{.Name}}: {{.State.Status}}" sqlserver22'
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -158,12 +203,12 @@ alias sql22-status='docker inspect --format "{{.Name}}: {{.State.Status}}" sqlse
 # ══════════════════════════════════════════════════════════════════════════════
 alias sql25-up='_ddbs_project mssql2025 mssql2025 up -d'
 alias sql25-down='_ddbs_project mssql2025 mssql2025 down'
-alias sql25-stop='docker stop sqlserver25'
+alias sql25-stop='docker stop --time 60 sqlserver25'
 alias sql25-start='docker start sqlserver25'
-alias sql25-restart='docker restart sqlserver25'
+alias sql25-restart='docker restart --time 60 sqlserver25'
 alias sql25-logs='docker logs -f sqlserver25'
 alias sql25-shell='docker exec -it sqlserver25 bash'
-alias sql25-client='docker exec -it sqlserver25 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No'
+alias sql25-client='docker exec -it sqlserver25 sh -c '\''SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"'\'' sh'
 alias sql25-status='docker inspect --format "{{.Name}}: {{.State.Status}}" sqlserver25'
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -176,7 +221,7 @@ alias mysql-start='docker start mysql8'
 alias mysql-restart='docker restart mysql8'
 alias mysql-logs='docker logs -f mysql8'
 alias mysql-shell='docker exec -it mysql8 bash'
-alias mysql-client='docker exec -it mysql8 mysql -u root -p'
+alias mysql-client='docker exec -it mysql8 sh -c '\''MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -u root "$@"'\'' sh'
 alias mysql-status='docker inspect --format "{{.Name}}: {{.State.Status}}" mysql8'
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -189,7 +234,7 @@ alias pg17-start='docker start postgresql17'
 alias pg17-restart='docker restart postgresql17'
 alias pg17-logs='docker logs -f postgresql17'
 alias pg17-shell='docker exec -it postgresql17 bash'
-alias pg17-psql='docker exec -it postgresql17 sh -c '\''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
+alias pg17-psql='docker exec -it postgresql17 sh -c '\''PGPASSWORD="$POSTGRES_PASSWORD" PSQL_PAGER=cat exec psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
 alias pg17-status='docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql17'
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -202,79 +247,79 @@ alias pg18-start='docker start postgresql18'
 alias pg18-restart='docker restart postgresql18'
 alias pg18-logs='docker logs -f postgresql18'
 alias pg18-shell='docker exec -it postgresql18 bash'
-alias pg18-psql='docker exec -it postgresql18 sh -c '\''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
+alias pg18-psql='docker exec -it postgresql18 sh -c '\''PGPASSWORD="$POSTGRES_PASSWORD" PSQL_PAGER=cat exec psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
 alias pg18-status='docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql18'
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PODMAN — mismos comandos con prefijo pod-
 # ══════════════════════════════════════════════════════════════════════════════
 
-alias pod-mdb-up='_pddbs_project mariadb mariadb up -d'
+alias pod-mdb-up='_pddbs_up mariadb mariadb mariadb_init mariadb'
 alias pod-mdb-down='_pddbs_project mariadb mariadb down'
-alias pod-mdb-stop='podman stop mariadb'
-alias pod-mdb-start='podman start mariadb'
-alias pod-mdb-restart='podman restart mariadb'
-alias pod-mdb-logs='podman logs -f mariadb'
-alias pod-mdb-shell='podman exec -it mariadb bash'
-alias pod-mdb-client='podman exec -it mariadb mariadb -u root -p'
-alias pod-mdb-status='podman inspect --format "{{.Name}}: {{.State.Status}}" mariadb'
+alias pod-mdb-stop='_pddbs_podman stop mariadb'
+alias pod-mdb-start='_pddbs_podman start mariadb'
+alias pod-mdb-restart='_pddbs_podman restart mariadb'
+alias pod-mdb-logs='_pddbs_podman logs -f mariadb'
+alias pod-mdb-shell='_pddbs_podman exec -it mariadb bash'
+alias pod-mdb-client='_pddbs_podman exec -it mariadb sh -c '\''MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -u root "$@"'\'' sh'
+alias pod-mdb-status='_pddbs_podman inspect --format "{{.Name}}: {{.State.Status}}" mariadb'
 
-alias pod-mongo-up='_pddbs_project mongodb mongodb up -d'
+alias pod-mongo-up='_pddbs_up mongodb mongodb mongodb_init mongodb'
 alias pod-mongo-down='_pddbs_project mongodb mongodb down'
-alias pod-mongo-stop='podman stop mongodb8'
-alias pod-mongo-start='podman start mongodb8'
-alias pod-mongo-restart='podman restart mongodb8'
-alias pod-mongo-logs='podman logs -f mongodb8'
-alias pod-mongo-shell='podman exec -it mongodb8 bash'
-alias pod-mongo-cli='podman exec -it mongodb8 mongosh'
-alias pod-mongo-status='podman inspect --format "{{.Name}}: {{.State.Status}}" mongodb8'
+alias pod-mongo-stop='_pddbs_podman stop mongodb8'
+alias pod-mongo-start='_pddbs_podman start mongodb8'
+alias pod-mongo-restart='_pddbs_podman restart mongodb8'
+alias pod-mongo-logs='_pddbs_podman logs -f mongodb8'
+alias pod-mongo-shell='_pddbs_podman exec -it mongodb8 bash'
+alias pod-mongo-cli='_pddbs_podman exec -it mongodb8 mongosh'
+alias pod-mongo-status='_pddbs_podman inspect --format "{{.Name}}: {{.State.Status}}" mongodb8'
 
-alias pod-sql22-up='_pddbs_project mssql2022 mssql2022 up -d'
+alias pod-sql22-up='_pddbs_up mssql2022 mssql2022 mssql2022_init mssql2022'
 alias pod-sql22-down='_pddbs_project mssql2022 mssql2022 down'
-alias pod-sql22-stop='podman stop sqlserver22'
-alias pod-sql22-start='podman start sqlserver22'
-alias pod-sql22-restart='podman restart sqlserver22'
-alias pod-sql22-logs='podman logs -f sqlserver22'
-alias pod-sql22-shell='podman exec -it sqlserver22 bash'
-alias pod-sql22-client='podman exec -it sqlserver22 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No'
-alias pod-sql22-status='podman inspect --format "{{.Name}}: {{.State.Status}}" sqlserver22'
+alias pod-sql22-stop='_pddbs_podman stop --time 60 sqlserver22'
+alias pod-sql22-start='_pddbs_podman start sqlserver22'
+alias pod-sql22-restart='_pddbs_podman restart --time 60 sqlserver22'
+alias pod-sql22-logs='_pddbs_podman logs -f sqlserver22'
+alias pod-sql22-shell='_pddbs_podman exec -it sqlserver22 bash'
+alias pod-sql22-client='_pddbs_podman exec -it sqlserver22 sh -c '\''SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"'\'' sh'
+alias pod-sql22-status='_pddbs_podman inspect --format "{{.Name}}: {{.State.Status}}" sqlserver22'
 
-alias pod-sql25-up='_pddbs_project mssql2025 mssql2025 up -d'
+alias pod-sql25-up='_pddbs_up mssql2025 mssql2025 mssql2025_init mssql2025'
 alias pod-sql25-down='_pddbs_project mssql2025 mssql2025 down'
-alias pod-sql25-stop='podman stop sqlserver25'
-alias pod-sql25-start='podman start sqlserver25'
-alias pod-sql25-restart='podman restart sqlserver25'
-alias pod-sql25-logs='podman logs -f sqlserver25'
-alias pod-sql25-shell='podman exec -it sqlserver25 bash'
-alias pod-sql25-client='podman exec -it sqlserver25 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No'
-alias pod-sql25-status='podman inspect --format "{{.Name}}: {{.State.Status}}" sqlserver25'
+alias pod-sql25-stop='_pddbs_podman stop --time 60 sqlserver25'
+alias pod-sql25-start='_pddbs_podman start sqlserver25'
+alias pod-sql25-restart='_pddbs_podman restart --time 60 sqlserver25'
+alias pod-sql25-logs='_pddbs_podman logs -f sqlserver25'
+alias pod-sql25-shell='_pddbs_podman exec -it sqlserver25 bash'
+alias pod-sql25-client='_pddbs_podman exec -it sqlserver25 sh -c '\''SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"'\'' sh'
+alias pod-sql25-status='_pddbs_podman inspect --format "{{.Name}}: {{.State.Status}}" sqlserver25'
 
-alias pod-mysql-up='_pddbs_project mysql mysql up -d'
+alias pod-mysql-up='_pddbs_up mysql mysql mysql_init mysql'
 alias pod-mysql-down='_pddbs_project mysql mysql down'
-alias pod-mysql-stop='podman stop mysql8'
-alias pod-mysql-start='podman start mysql8'
-alias pod-mysql-restart='podman restart mysql8'
-alias pod-mysql-logs='podman logs -f mysql8'
-alias pod-mysql-shell='podman exec -it mysql8 bash'
-alias pod-mysql-client='podman exec -it mysql8 mysql -u root -p'
-alias pod-mysql-status='podman inspect --format "{{.Name}}: {{.State.Status}}" mysql8'
+alias pod-mysql-stop='_pddbs_podman stop mysql8'
+alias pod-mysql-start='_pddbs_podman start mysql8'
+alias pod-mysql-restart='_pddbs_podman restart mysql8'
+alias pod-mysql-logs='_pddbs_podman logs -f mysql8'
+alias pod-mysql-shell='_pddbs_podman exec -it mysql8 bash'
+alias pod-mysql-client='_pddbs_podman exec -it mysql8 sh -c '\''MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -u root "$@"'\'' sh'
+alias pod-mysql-status='_pddbs_podman inspect --format "{{.Name}}: {{.State.Status}}" mysql8'
 
-alias pod-pg17-up='_pddbs_project postgresql17 postgresql17 up -d'
+alias pod-pg17-up='_pddbs_up postgresql17 postgresql17 postgresql17_init postgresql17'
 alias pod-pg17-down='_pddbs_project postgresql17 postgresql17 down'
-alias pod-pg17-stop='podman stop postgresql17'
-alias pod-pg17-start='podman start postgresql17'
-alias pod-pg17-restart='podman restart postgresql17'
-alias pod-pg17-logs='podman logs -f postgresql17'
-alias pod-pg17-shell='podman exec -it postgresql17 bash'
-alias pod-pg17-psql='podman exec -it postgresql17 sh -c '\''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
-alias pod-pg17-status='podman inspect --format "{{.Name}}: {{.State.Status}}" postgresql17'
+alias pod-pg17-stop='_pddbs_podman stop postgresql17'
+alias pod-pg17-start='_pddbs_podman start postgresql17'
+alias pod-pg17-restart='_pddbs_podman restart postgresql17'
+alias pod-pg17-logs='_pddbs_podman logs -f postgresql17'
+alias pod-pg17-shell='_pddbs_podman exec -it postgresql17 bash'
+alias pod-pg17-psql='_pddbs_podman exec -it postgresql17 sh -c '\''PGPASSWORD="$POSTGRES_PASSWORD" PSQL_PAGER=cat exec psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
+alias pod-pg17-status='_pddbs_podman inspect --format "{{.Name}}: {{.State.Status}}" postgresql17'
 
-alias pod-pg18-up='_pddbs_project postgresql18 postgresql18 up -d'
+alias pod-pg18-up='_pddbs_up postgresql18 postgresql18 postgresql18_init postgresql'
 alias pod-pg18-down='_pddbs_project postgresql18 postgresql18 down'
-alias pod-pg18-stop='podman stop postgresql18'
-alias pod-pg18-start='podman start postgresql18'
-alias pod-pg18-restart='podman restart postgresql18'
-alias pod-pg18-logs='podman logs -f postgresql18'
-alias pod-pg18-shell='podman exec -it postgresql18 bash'
-alias pod-pg18-psql='podman exec -it postgresql18 sh -c '\''exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
-alias pod-pg18-status='podman inspect --format "{{.Name}}: {{.State.Status}}" postgresql18'
+alias pod-pg18-stop='_pddbs_podman stop postgresql18'
+alias pod-pg18-start='_pddbs_podman start postgresql18'
+alias pod-pg18-restart='_pddbs_podman restart postgresql18'
+alias pod-pg18-logs='_pddbs_podman logs -f postgresql18'
+alias pod-pg18-shell='_pddbs_podman exec -it postgresql18 bash'
+alias pod-pg18-psql='_pddbs_podman exec -it postgresql18 sh -c '\''PGPASSWORD="$POSTGRES_PASSWORD" PSQL_PAGER=cat exec psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"'\'' sh'
+alias pod-pg18-status='_pddbs_podman inspect --format "{{.Name}}: {{.State.Status}}" postgresql18'
