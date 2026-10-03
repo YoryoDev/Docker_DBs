@@ -179,9 +179,9 @@ alias mongo-status  'docker inspect --format "{{.Name}}: {{.State.Status}}" mong
 # ══════════════════════════════════════════════════════════════════════════════
 alias sql22-up      '_ddbs_project mssql2022 mssql2022 up -d'
 alias sql22-down    '_ddbs_project mssql2022 mssql2022 down'
-alias sql22-stop    'docker stop --time 60 sqlserver22'
+alias sql22-stop    'docker stop --timeout 60 sqlserver22'
 alias sql22-start   'docker start sqlserver22'
-alias sql22-restart 'docker restart --time 60 sqlserver22'
+alias sql22-restart 'docker restart --timeout 60 sqlserver22'
 alias sql22-logs    'docker logs -f sqlserver22'
 alias sql22-shell   'docker exec -it sqlserver22 bash'
 function sql22-client
@@ -194,9 +194,9 @@ alias sql22-status  'docker inspect --format "{{.Name}}: {{.State.Status}}" sqls
 # ══════════════════════════════════════════════════════════════════════════════
 alias sql25-up      '_ddbs_project mssql2025 mssql2025 up -d'
 alias sql25-down    '_ddbs_project mssql2025 mssql2025 down'
-alias sql25-stop    'docker stop --time 60 sqlserver25'
+alias sql25-stop    'docker stop --timeoutout 60 sqlserver25'
 alias sql25-start   'docker start sqlserver25'
-alias sql25-restart 'docker restart --time 60 sqlserver25'
+alias sql25-restart 'docker restart --timeoutout 60 sqlserver25'
 alias sql25-logs    'docker logs -f sqlserver25'
 alias sql25-shell   'docker exec -it sqlserver25 bash'
 function sql25-client
@@ -277,9 +277,9 @@ alias pod-mongo-status  '_pddbs_podman inspect --format "{{.Name}}: {{.State.Sta
 
 alias pod-sql22-up      '_pddbs_up mssql2022 mssql2022 mssql2022_init mssql2022'
 alias pod-sql22-down    '_pddbs_project mssql2022 mssql2022 down'
-alias pod-sql22-stop    '_pddbs_podman stop --time 60 sqlserver22'
+alias pod-sql22-stop    '_pddbs_podman stop --timeout 60 sqlserver22'
 alias pod-sql22-start   '_pddbs_podman start sqlserver22'
-alias pod-sql22-restart '_pddbs_podman restart --time 60 sqlserver22'
+alias pod-sql22-restart '_pddbs_podman restart --timeout 60 sqlserver22'
 alias pod-sql22-logs    '_pddbs_podman logs -f sqlserver22'
 alias pod-sql22-shell   '_pddbs_podman exec -it sqlserver22 bash'
 function pod-sql22-client
@@ -289,9 +289,9 @@ alias pod-sql22-status  '_pddbs_podman inspect --format "{{.Name}}: {{.State.Sta
 
 alias pod-sql25-up      '_pddbs_up mssql2025 mssql2025 mssql2025_init mssql2025'
 alias pod-sql25-down    '_pddbs_project mssql2025 mssql2025 down'
-alias pod-sql25-stop    '_pddbs_podman stop --time 60 sqlserver25'
+alias pod-sql25-stop    '_pddbs_podman stop --timeout 60 sqlserver25'
 alias pod-sql25-start   '_pddbs_podman start sqlserver25'
-alias pod-sql25-restart '_pddbs_podman restart --time 60 sqlserver25'
+alias pod-sql25-restart '_pddbs_podman restart --timeout 60 sqlserver25'
 alias pod-sql25-logs    '_pddbs_podman logs -f sqlserver25'
 alias pod-sql25-shell   '_pddbs_podman exec -it sqlserver25 bash'
 function pod-sql25-client

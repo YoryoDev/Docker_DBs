@@ -206,9 +206,9 @@ function Invoke-Sql22Up   { Invoke-DDBSProject mssql2022 mssql2022 up -d @args }
 function Invoke-Sql22Down { Invoke-DDBSProject mssql2022 mssql2022 down @args }
 Set-Alias sql22-up       Invoke-Sql22Up
 Set-Alias sql22-down     Invoke-Sql22Down
-function sql22-stop     { docker stop --time 60 sqlserver22 @args }
+function sql22-stop     { docker stop --timeout 60 sqlserver22 @args }
 function sql22-start    { docker start sqlserver22 @args }
-function sql22-restart  { docker restart --time 60 sqlserver22 @args }
+function sql22-restart  { docker restart --timeout 60 sqlserver22 @args }
 function sql22-logs     { docker logs -f sqlserver22 @args }
 function sql22-shell    { docker exec -it sqlserver22 bash @args }
 function sql22-client   { docker exec -it sqlserver22 sh -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"' sh @args }
@@ -221,9 +221,9 @@ function Invoke-Sql25Up   { Invoke-DDBSProject mssql2025 mssql2025 up -d @args }
 function Invoke-Sql25Down { Invoke-DDBSProject mssql2025 mssql2025 down @args }
 Set-Alias sql25-up       Invoke-Sql25Up
 Set-Alias sql25-down     Invoke-Sql25Down
-function sql25-stop     { docker stop --time 60 sqlserver25 @args }
+function sql25-stop     { docker stop --timeout 60 sqlserver25 @args }
 function sql25-start    { docker start sqlserver25 @args }
-function sql25-restart  { docker restart --time 60 sqlserver25 @args }
+function sql25-restart  { docker restart --timeout 60 sqlserver25 @args }
 function sql25-logs     { docker logs -f sqlserver25 @args }
 function sql25-shell    { docker exec -it sqlserver25 bash @args }
 function sql25-client   { docker exec -it sqlserver25 sh -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"' sh @args }
@@ -306,9 +306,9 @@ function Invoke-PodSql22Up   { Invoke-PDDBSUp mssql2022 mssql2022 mssql2022_init
 function Invoke-PodSql22Down { Invoke-PDDBSProject mssql2022 mssql2022 down @args }
 Set-Alias pod-sql22-up       Invoke-PodSql22Up
 Set-Alias pod-sql22-down     Invoke-PodSql22Down
-function pod-sql22-stop     { Invoke-DDBSPodman stop --time 60 sqlserver22 @args }
+function pod-sql22-stop     { Invoke-DDBSPodman stop --timeout 60 sqlserver22 @args }
 function pod-sql22-start    { Invoke-DDBSPodman start sqlserver22 @args }
-function pod-sql22-restart  { Invoke-DDBSPodman restart --time 60 sqlserver22 @args }
+function pod-sql22-restart  { Invoke-DDBSPodman restart --timeout 60 sqlserver22 @args }
 function pod-sql22-logs     { Invoke-DDBSPodman logs -f sqlserver22 @args }
 function pod-sql22-shell    { Invoke-DDBSPodman exec -it sqlserver22 bash @args }
 function pod-sql22-client   { Invoke-DDBSPodman exec -it sqlserver22 sh -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"' sh @args }
@@ -318,9 +318,9 @@ function Invoke-PodSql25Up   { Invoke-PDDBSUp mssql2025 mssql2025 mssql2025_init
 function Invoke-PodSql25Down { Invoke-PDDBSProject mssql2025 mssql2025 down @args }
 Set-Alias pod-sql25-up       Invoke-PodSql25Up
 Set-Alias pod-sql25-down     Invoke-PodSql25Down
-function pod-sql25-stop     { Invoke-DDBSPodman stop --time 60 sqlserver25 @args }
+function pod-sql25-stop     { Invoke-DDBSPodman stop --timeout 60 sqlserver25 @args }
 function pod-sql25-start    { Invoke-DDBSPodman start sqlserver25 @args }
-function pod-sql25-restart  { Invoke-DDBSPodman restart --time 60 sqlserver25 @args }
+function pod-sql25-restart  { Invoke-DDBSPodman restart --timeout 60 sqlserver25 @args }
 function pod-sql25-logs     { Invoke-DDBSPodman logs -f sqlserver25 @args }
 function pod-sql25-shell    { Invoke-DDBSPodman exec -it sqlserver25 bash @args }
 function pod-sql25-client   { Invoke-DDBSPodman exec -it sqlserver25 sh -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No "$@"' sh @args }
