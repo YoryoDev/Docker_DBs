@@ -1,5 +1,5 @@
 # =============================================================
-# MySQL 8.4 — Docker Compose
+# MySQL 8.4 — Docker/Podman Compose
 #
 # BIND_ADDRESS — Controla la interfaz de red donde se expone el puerto:
 #
@@ -46,7 +46,7 @@ services:
     image: mysql:8.4
     container_name: mysql8
     hostname: mysql8
-    restart: no
+    restart: "no"
     depends_on:
       mysql_init:
         condition: service_completed_successfully
@@ -58,7 +58,7 @@ services:
       - mysql_data:/var/lib/mysql
       - mysql_backup:/var/lib/mysql-backup
       - mysql_log:/var/log/mysql
-      - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro,Z
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_USER: ${MYSQL_USER}

@@ -1,5 +1,5 @@
 # =============================================================
-# MariaDB 11.4 — Docker Compose
+# MariaDB 11.4 — Docker/Podman Compose
 #
 # BIND_ADDRESS — Controla la interfaz de red donde se expone el puerto:
 #
@@ -46,7 +46,7 @@ services:
     image: mariadb:11.4
     container_name: mariadb
     hostname: mariadb
-    restart: no
+    restart: "no"
     depends_on:
       mariadb_init:
         condition: service_completed_successfully
@@ -58,7 +58,7 @@ services:
       - mariadb_data:/var/lib/mysql
       - mariadb_backup:/var/lib/mysql-backup
       - mariadb_log:/var/log/mysql
-      - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro,Z
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
       MARIADB_USER: ${MARIADB_USER}

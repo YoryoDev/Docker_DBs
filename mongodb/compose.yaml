@@ -1,5 +1,5 @@
 # =============================================================
-# MongoDB 8.0 — Docker Compose
+# MongoDB 8.0 — Docker/Podman Compose
 #
 # BIND_ADDRESS — Controla la interfaz de red donde se expone el puerto:
 #
@@ -46,7 +46,7 @@ services:
     image: mongo:8.0-noble
     container_name: mongodb8
     hostname: mongodb8
-    restart: no
+    restart: "no"
     depends_on:
       mongodb_init:
         condition: service_completed_successfully
@@ -58,7 +58,7 @@ services:
       - mongodb_data:/data/db
       - mongodb_backup:/data/backup
       - mongodb_log:/var/log/mongodb
-      - ./config/mongod.conf:/etc/mongod.conf:ro
+      - ./config/mongod.conf:/etc/mongod.conf:ro,Z
     command: mongod --config /etc/mongod.conf
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}

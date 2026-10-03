@@ -1,4 +1,4 @@
-# ─── Docker DBs — PowerShell Aliases ─────────────────────────────────────────
+# ─── Docker/Podman DBs — PowerShell Aliases ──────────────────────────────────
 # Load with dot-sourcing in the current session and in $PROFILE:
 #   $env:DDBS_HOME = Join-Path $HOME "Workspace\Docker_DBs"
 #   . (Join-Path $env:DDBS_HOME "DockerDBs.ps1")
@@ -29,6 +29,18 @@ function Invoke-DDBSProject {
         --profile $Profile @args
 }
 
+# Variante Podman. `podman compose` requiere un proveedor Compose compatible.
+function Invoke-PDDBSProject {
+    param(
+        [string]$ProjectDir,
+        [string]$Profile
+    )
+    $fullDir = Join-Path $script:DDBS $ProjectDir
+    podman compose -f (Join-Path $fullDir "compose.yaml") `
+        --env-file (Join-Path $fullDir ".env") `
+        --profile $Profile @args
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # GENERAL
 # ══════════════════════════════════════════════════════════════════════════════
@@ -43,10 +55,25 @@ function Show-DDBSContainers {
 }
 Set-Alias ddbs-ps Show-DDBSContainers
 
+function Show-PDDBSContainers {
+    podman ps -a `
+        --filter 'name=mariadb' --filter 'name=mongodb8' `
+        --filter 'name=sqlserver22' --filter 'name=sqlserver25' `
+        --filter 'name=mysql8' `
+        --filter 'name=postgresql17' --filter 'name=postgresql18' `
+        --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+}
+Set-Alias pod-ddbs-ps Show-PDDBSContainers
+
 function Show-DDBSImages {
     docker images | Select-String "mariadb|mongo|mssql|mysql|postgres"
 }
 Set-Alias ddbs-images Show-DDBSImages
+
+function Show-PDDBSImages {
+    podman images | Select-String "mariadb|mongo|mssql|mysql|postgres"
+}
+Set-Alias pod-ddbs-images Show-PDDBSImages
 
 function Show-DDBSHelp {
     Write-Host ""
@@ -78,9 +105,11 @@ function Show-DDBSHelp {
     Write-Host "  ║  POSTGRES 18 ║  pg18-up/down/stop/start/restart                 ║"
     Write-Host "  ║  :5432       ║  pg18-logs  pg18-shell  pg18-psql  pg18-status   ║"
     Write-Host "  ╚══════════════╩═══════════════════════════════════════════════════╝"
+    Write-Host "  Podman: anteponé pod- a cada alias (ej.: pod-pg18-up)."
     Write-Host ""
 }
 Set-Alias ddbs-help Show-DDBSHelp
+Set-Alias pod-ddbs-help Show-DDBSHelp
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MARIADB 11.4  |  container: mariadb  |  puerto: 3307
@@ -186,3 +215,91 @@ function pg18-logs     { docker logs -f postgresql18 @args }
 function pg18-shell    { docker exec -it postgresql18 bash @args }
 function pg18-psql     { docker exec -it postgresql18 sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh @args }
 function pg18-status   { docker inspect --format "{{.Name}}: {{.State.Status}}" postgresql18 @args }
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PODMAN — mismos comandos con prefijo pod-
+# ══════════════════════════════════════════════════════════════════════════════
+
+function Invoke-PodMdbUp   { Invoke-PDDBSProject mariadb mariadb up -d @args }
+function Invoke-PodMdbDown { Invoke-PDDBSProject mariadb mariadb down @args }
+Set-Alias pod-mdb-up       Invoke-PodMdbUp
+Set-Alias pod-mdb-down     Invoke-PodMdbDown
+function pod-mdb-stop     { podman stop mariadb @args }
+function pod-mdb-start    { podman start mariadb @args }
+function pod-mdb-restart  { podman restart mariadb @args }
+function pod-mdb-logs     { podman logs -f mariadb @args }
+function pod-mdb-shell    { podman exec -it mariadb bash @args }
+function pod-mdb-client   { podman exec -it mariadb mariadb -u root -p @args }
+function pod-mdb-status   { podman inspect --format "{{.Name}}: {{.State.Status}}" mariadb @args }
+
+function Invoke-PodMongoUp   { Invoke-PDDBSProject mongodb mongodb up -d @args }
+function Invoke-PodMongoDown { Invoke-PDDBSProject mongodb mongodb down @args }
+Set-Alias pod-mongo-up       Invoke-PodMongoUp
+Set-Alias pod-mongo-down     Invoke-PodMongoDown
+function pod-mongo-stop     { podman stop mongodb8 @args }
+function pod-mongo-start    { podman start mongodb8 @args }
+function pod-mongo-restart  { podman restart mongodb8 @args }
+function pod-mongo-logs     { podman logs -f mongodb8 @args }
+function pod-mongo-shell    { podman exec -it mongodb8 bash @args }
+function pod-mongo-cli      { podman exec -it mongodb8 mongosh @args }
+function pod-mongo-status   { podman inspect --format "{{.Name}}: {{.State.Status}}" mongodb8 @args }
+
+function Invoke-PodSql22Up   { Invoke-PDDBSProject mssql2022 mssql2022 up -d @args }
+function Invoke-PodSql22Down { Invoke-PDDBSProject mssql2022 mssql2022 down @args }
+Set-Alias pod-sql22-up       Invoke-PodSql22Up
+Set-Alias pod-sql22-down     Invoke-PodSql22Down
+function pod-sql22-stop     { podman stop sqlserver22 @args }
+function pod-sql22-start    { podman start sqlserver22 @args }
+function pod-sql22-restart  { podman restart sqlserver22 @args }
+function pod-sql22-logs     { podman logs -f sqlserver22 @args }
+function pod-sql22-shell    { podman exec -it sqlserver22 bash @args }
+function pod-sql22-client   { podman exec -it sqlserver22 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No @args }
+function pod-sql22-status   { podman inspect --format "{{.Name}}: {{.State.Status}}" sqlserver22 @args }
+
+function Invoke-PodSql25Up   { Invoke-PDDBSProject mssql2025 mssql2025 up -d @args }
+function Invoke-PodSql25Down { Invoke-PDDBSProject mssql2025 mssql2025 down @args }
+Set-Alias pod-sql25-up       Invoke-PodSql25Up
+Set-Alias pod-sql25-down     Invoke-PodSql25Down
+function pod-sql25-stop     { podman stop sqlserver25 @args }
+function pod-sql25-start    { podman start sqlserver25 @args }
+function pod-sql25-restart  { podman restart sqlserver25 @args }
+function pod-sql25-logs     { podman logs -f sqlserver25 @args }
+function pod-sql25-shell    { podman exec -it sqlserver25 bash @args }
+function pod-sql25-client   { podman exec -it sqlserver25 /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -No @args }
+function pod-sql25-status   { podman inspect --format "{{.Name}}: {{.State.Status}}" sqlserver25 @args }
+
+function Invoke-PodMySQLUp   { Invoke-PDDBSProject mysql mysql up -d @args }
+function Invoke-PodMySQLDown { Invoke-PDDBSProject mysql mysql down @args }
+Set-Alias pod-mysql-up       Invoke-PodMySQLUp
+Set-Alias pod-mysql-down     Invoke-PodMySQLDown
+function pod-mysql-stop     { podman stop mysql8 @args }
+function pod-mysql-start    { podman start mysql8 @args }
+function pod-mysql-restart  { podman restart mysql8 @args }
+function pod-mysql-logs     { podman logs -f mysql8 @args }
+function pod-mysql-shell    { podman exec -it mysql8 bash @args }
+function pod-mysql-client   { podman exec -it mysql8 mysql -u root -p @args }
+function pod-mysql-status   { podman inspect --format "{{.Name}}: {{.State.Status}}" mysql8 @args }
+
+function Invoke-PodPg17Up   { Invoke-PDDBSProject postgresql17 postgresql17 up -d @args }
+function Invoke-PodPg17Down { Invoke-PDDBSProject postgresql17 postgresql17 down @args }
+Set-Alias pod-pg17-up       Invoke-PodPg17Up
+Set-Alias pod-pg17-down     Invoke-PodPg17Down
+function pod-pg17-stop     { podman stop postgresql17 @args }
+function pod-pg17-start    { podman start postgresql17 @args }
+function pod-pg17-restart  { podman restart postgresql17 @args }
+function pod-pg17-logs     { podman logs -f postgresql17 @args }
+function pod-pg17-shell    { podman exec -it postgresql17 bash @args }
+function pod-pg17-psql     { podman exec -it postgresql17 sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh @args }
+function pod-pg17-status   { podman inspect --format "{{.Name}}: {{.State.Status}}" postgresql17 @args }
+
+function Invoke-PodPg18Up   { Invoke-PDDBSProject postgresql18 postgresql18 up -d @args }
+function Invoke-PodPg18Down { Invoke-PDDBSProject postgresql18 postgresql18 down @args }
+Set-Alias pod-pg18-up       Invoke-PodPg18Up
+Set-Alias pod-pg18-down     Invoke-PodPg18Down
+function pod-pg18-stop     { podman stop postgresql18 @args }
+function pod-pg18-start    { podman start postgresql18 @args }
+function pod-pg18-restart  { podman restart postgresql18 @args }
+function pod-pg18-logs     { podman logs -f postgresql18 @args }
+function pod-pg18-shell    { podman exec -it postgresql18 bash @args }
+function pod-pg18-psql     { podman exec -it postgresql18 sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"' sh @args }
+function pod-pg18-status   { podman inspect --format "{{.Name}}: {{.State.Status}}" postgresql18 @args }

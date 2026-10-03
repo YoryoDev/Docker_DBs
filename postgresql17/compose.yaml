@@ -1,5 +1,5 @@
 # =============================================================
-# PostgreSQL 17 — Docker Compose
+# PostgreSQL 17 — Docker/Podman Compose
 #
 # BIND_ADDRESS — Controla la interfaz de red donde se expone el puerto:
 #
@@ -46,7 +46,7 @@ services:
     image: postgres:17.11-bookworm
     container_name: postgresql17
     hostname: postgresql17
-    restart: no
+    restart: "no"
     depends_on:
       postgresql17_init:
         condition: service_completed_successfully
@@ -59,8 +59,8 @@ services:
       - postgresql17_data:/var/lib/postgresql/data
       - postgresql17_backup:/var/lib/postgresql/backup
       - postgresql17_log:/var/log/postgresql
-      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro,Z
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro,Z
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

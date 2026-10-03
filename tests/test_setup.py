@@ -1,4 +1,4 @@
-"""Safe regression checks: temporary dummy configuration and mocked Docker only."""
+"""Safe regression checks: dummy configuration and mocked container CLIs only."""
 
 import json
 import os
@@ -35,31 +35,39 @@ class SetupTests(unittest.TestCase):
         if not shutil.which(shell):
             self.skipTest(f"{shell} unavailable")
         source = f'source "{ROOT / filename}"; '
-        if shell == "bash":
-            setup = 'shopt -s expand_aliases; docker() { printf "%s\\n" "$@"; }; '
-            command = [shell, "--noprofile", "--norc", "-c"]
-        else:
-            setup = 'function docker; printf "%s\\n" $argv; end; '
-            command = [shell, "--no-config", "-c"]
-        for prefix, folder in PROJECTS.items():
-            for action, args in (("up", ["up", "-d"]), ("down", ["down"])):
-                with self.subTest(shell=shell, folder=folder, action=action):
-                    result = self.run_command(command + [source + setup + f'eval "{prefix}-{action} --timeout 7"'])
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    path = self.root / folder
-                    self.assertEqual(result.stdout.splitlines(), [
-                        "compose", "-f", str(path / "compose.yaml"),
-                        "--project-directory", str(path), "--env-file", str(path / ".env"),
-                        "--profile", folder, *args, "--timeout", "7",
-                    ])
-        result = self.run_command(command + [source + setup + 'eval "pg18-psql -c \'SELECT 1\'"'])
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"', result.stdout)
-        self.assertEqual(result.stdout.splitlines()[-2:], ["-c", "SELECT 1"])
-        failure = ('docker() { return 23; }; ' if shell == "bash"
-                   else 'function docker; return 23; end; ')
-        result = self.run_command(command + [source + failure + '_ddbs_project mysql mysql config --quiet'])
-        self.assertEqual(result.returncode, 23)
+        command = ([shell, "--noprofile", "--norc", "-c"] if shell == "bash"
+                   else [shell, "--no-config", "-c"])
+        for runtime, alias_prefix, helper in (
+                ("docker", "", "_ddbs_project"),
+                ("podman", "pod-", "_pddbs_project")):
+            setup = (f'shopt -s expand_aliases; {runtime}() {{ printf "%s\\n" "$@"; }}; '
+                     if shell == "bash"
+                     else f'function {runtime}; printf "%s\\n" $argv; end; ')
+            for prefix, folder in PROJECTS.items():
+                for action, args in (("up", ["up", "-d"]), ("down", ["down"])):
+                    with self.subTest(shell=shell, runtime=runtime, folder=folder, action=action):
+                        invocation = f'eval "{alias_prefix}{prefix}-{action} --timeout 7"'
+                        result = self.run_command(command + [source + setup + invocation])
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        path = self.root / folder
+                        expected = ["compose", "-f", str(path / "compose.yaml")]
+                        if runtime == "docker":
+                            expected.extend(["--project-directory", str(path)])
+                        expected.extend([
+                            "--env-file", str(path / ".env"), "--profile", folder,
+                            *args, "--timeout", "7",
+                        ])
+                        self.assertEqual(result.stdout.splitlines(), expected)
+            invocation = f'eval "{alias_prefix}pg18-psql -c \'SELECT 1\'"'
+            result = self.run_command(command + [source + setup + invocation])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"', result.stdout)
+            self.assertEqual(result.stdout.splitlines()[-2:], ["-c", "SELECT 1"])
+            failure = (f'{runtime}() {{ return 23; }}; ' if shell == "bash"
+                       else f'function {runtime}; return 23; end; ')
+            result = self.run_command(command + [
+                source + failure + f'{helper} mysql mysql config --quiet'])
+            self.assertEqual(result.returncode, 23)
 
     def test_bash_helpers(self):
         self.check_shell("bash", ".bash_aliases")
@@ -70,18 +78,44 @@ class SetupTests(unittest.TestCase):
     def test_powershell_helpers(self):
         if not shutil.which("pwsh"):
             self.skipTest("pwsh unavailable; PowerShell execution not verified")
-        for prefix, folder in PROJECTS.items():
-            code = (f'. "{ROOT / "DockerDBs.ps1"}"; '
-                    'function docker { ConvertTo-Json -InputObject @($args) -Compress }; '
-                    f'{prefix}-up --timeout 7')
-            result = self.run_command(["pwsh", "-NoProfile", "-Command", code])
-            self.assertEqual(result.returncode, 0, result.stderr)
-            path = self.root / folder
-            self.assertEqual(json.loads(result.stdout), [
-                "compose", "-f", str(path / "compose.yaml"),
-                "--project-directory", str(path), "--env-file", str(path / ".env"),
-                "--profile", folder, "up", "-d", "--timeout", "7",
-            ])
+        for runtime, alias_prefix in (("docker", ""), ("podman", "pod-")):
+            for prefix, folder in PROJECTS.items():
+                code = (f'. "{ROOT / "DockerDBs.ps1"}"; '
+                        f'function {runtime} {{ ConvertTo-Json -InputObject @($args) -Compress }}; '
+                        f'{alias_prefix}{prefix}-up --timeout 7')
+                result = self.run_command(["pwsh", "-NoProfile", "-Command", code])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                path = self.root / folder
+                expected = ["compose", "-f", str(path / "compose.yaml")]
+                if runtime == "docker":
+                    expected.extend(["--project-directory", str(path)])
+                expected.extend([
+                    "--env-file", str(path / ".env"), "--profile", folder,
+                    "up", "-d", "--timeout", "7",
+                ])
+                self.assertEqual(json.loads(result.stdout), expected)
+
+    def test_podman_alias_inventory(self):
+        expected = {"pod-ddbs-ps", "pod-ddbs-images", "pod-ddbs-help"}
+        extras = {
+            "mdb": "client", "mongo": "cli", "sql22": "client",
+            "sql25": "client", "mysql": "client", "pg17": "psql", "pg18": "psql",
+        }
+        for prefix in PROJECTS:
+            expected.update(
+                f"pod-{prefix}-{action}"
+                for action in ("up", "down", "stop", "start", "restart", "logs", "shell", "status")
+            )
+            expected.add(f"pod-{prefix}-{extras[prefix]}")
+
+        patterns = {
+            ".bash_aliases": r"^alias (pod-[\w-]+)=",
+            "docker_dbs.fish": r"^(?:alias|function) (pod-[\w-]+)",
+            "DockerDBs.ps1": r"^(?:Set-Alias|function) (pod-[\w-]+)",
+        }
+        for filename, pattern in patterns.items():
+            names = set(re.findall(pattern, (ROOT / filename).read_text(), re.M))
+            self.assertEqual(names, expected, filename)
 
     def compose_fixture(self):
         # Never read or copy real .env files, examples, or credentials.
@@ -91,6 +125,7 @@ class SetupTests(unittest.TestCase):
             target.mkdir()
             text = (ROOT / folder / "compose.yaml").read_text()
             (target / "compose.yaml").write_text(text)
+            shutil.copytree(ROOT / folder / "config", target / "config")
             names = set(re.findall(r"(?<!\$)\$\{([A-Z_]+)", text))
             values = {name: f"dummy_{folder}" for name in names}
             values["BIND_ADDRESS"] = "127.0.0.1"
@@ -135,6 +170,43 @@ class SetupTests(unittest.TestCase):
                 "--env-file", str(path / ".env"), "--profile", folder, "config", "--quiet",
             ])
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_podman_compose_standalone(self):
+        if not shutil.which("podman"):
+            self.skipTest("podman unavailable")
+        self.compose_fixture()
+        for folder in PROJECTS.values():
+            path = self.root / folder
+            result = self.run_command([
+                "podman", "compose", "-f", str(path / "compose.yaml"),
+                "--env-file", str(path / ".env"), "--profile", folder, "config",
+            ])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = self.run_command([
+                "podman", "compose", "--dry-run", "-f", str(path / "compose.yaml"),
+                "--env-file", str(path / ".env"), "--profile", folder, "up", "-d",
+            ])
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_podman_compose_root(self):
+        if not shutil.which("podman"):
+            self.skipTest("podman unavailable")
+        version = self.run_command(["podman", "compose", "version"])
+        output = version.stdout + version.stderr
+        if "podman-compose" in output:
+            self.skipTest("podman-compose does not support include entries with per-project env_file")
+        self.compose_fixture()
+        result = self.run_command([
+            "podman", "compose", "--profile", "*", "config", "--quiet",
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_selinux_relabel_on_config_bind_mounts(self):
+        for folder in PROJECTS.values():
+            text = (ROOT / folder / "compose.yaml").read_text()
+            mounts = [line.strip() for line in text.splitlines() if "./config/" in line]
+            self.assertTrue(mounts, folder)
+            self.assertTrue(all(line.endswith(":ro,Z") for line in mounts), mounts)
 
     def test_persisted_identity_unchanged(self):
         for folder in PROJECTS.values():

@@ -1,5 +1,5 @@
 # =============================================================
-# SQL Server 2025 — Docker Compose
+# SQL Server 2025 — Docker/Podman Compose
 #
 # BIND_ADDRESS — Controla la interfaz de red donde se expone el puerto:
 #
@@ -47,7 +47,7 @@ services:
     image: mcr.microsoft.com/mssql/server:2025-latest
     container_name: sqlserver25
     hostname: sqlserver25
-    restart: no
+    restart: "no"
     depends_on:
       mssql2025_init:
         condition: service_completed_successfully
@@ -60,7 +60,7 @@ services:
       - mssql2025_backup:/var/opt/mssql/backup
       - mssql2025_jobs:/var/opt/mssql/jobs
       - mssql2025_log:/var/opt/mssql/log
-      - ./config/mssql.conf:/var/opt/mssql/mssql.conf:ro
+      - ./config/mssql.conf:/var/opt/mssql/mssql.conf:ro,Z
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: "StandardDeveloper"

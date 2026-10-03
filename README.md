@@ -1,6 +1,6 @@
 # Docker_DBs
 
-Entorno multi-motor de bases de datos sobre Docker Compose. Diseñado para desarrollo, pruebas y laboratorio en cualquier plataforma (Windows con Docker Desktop, Linux nativo con Docker, VMs con Debian/Ubuntu/Arch, etc.). Cada motor es independiente, con configuración explícita, named volumes y límites de recursos definidos.
+Entorno multi-motor de bases de datos sobre Docker Compose o Podman. Diseñado para desarrollo, pruebas y laboratorio en Linux, Windows y macOS. Cada motor es independiente, con configuración explícita, named volumes y límites de recursos definidos.
 
 **Uso**: Los servicios se ejecutan de forma independiente — no todos a la vez — para no consumir recursos innecesarios. Cada usuario levanta solo lo que necesita en cada momento.
 
@@ -14,6 +14,7 @@ Se ha revisado y consolidado la base del proyecto en varias direcciones:
 - Limpieza de componentes no mantenidos: eliminación del servicio de Oracle y simplificación del stack.
 - Fortalecimiento del proyecto con validaciones automáticas (`tests/test_setup.py`) para comprobar perfiles, rutas con espacios, y compatibilidad de comandos.
 - Revisión de seguridad y portabilidad: `BIND_ADDRESS` por motor, named volumes, init containers y documentación de recursos.
+- Compatibilidad con Podman mediante `podman compose`, relabel SELinux en los bind mounts y aliases equivalentes en Bash, Fish y PowerShell.
 
 Este repositorio mantiene un único README principal, ya que cada motor se gestiona desde su propio subdirectorio con `.env.example` y configuración específica; no hay documentación separada por servicio.
 
@@ -23,6 +24,7 @@ Este repositorio mantiene un único README principal, ya que cada motor se gesti
 
 - [Motores](#motores)
 - [Requisitos](#requisitos)
+- [Docker o Podman](#docker-o-podman)
 - [Instalación rápida](#instalación-rápida)
 - [Variable BIND_ADDRESS](#variable-bind_address)
 - [Uso de comandos](#uso-de-comandos)
@@ -55,9 +57,18 @@ Fuentes: [tags de Microsoft](https://mcr.microsoft.com/v2/mssql/server/tags/list
 
 ## Requisitos
 
-- [Docker Engine](https://docs.docker.com/engine/install/) >= 24
-- [Docker Compose](https://docs.docker.com/compose/install/) >= 2.20 (incluido en Docker Desktop)
 - Git
+- Uno de estos runtimes:
+  - [Docker Engine](https://docs.docker.com/engine/install/) >= 24 con [Docker Compose](https://docs.docker.com/compose/install/) >= 2.20.
+  - [Podman](https://podman.io/docs/installation) con un proveedor Compose compatible; comprobarlo con `podman compose version`.
+
+## Docker o Podman
+
+Los mismos `compose.yaml` funcionan con ambos runtimes. Los mounts de configuración usan `ro,Z`: Docker conserva el modo de solo lectura y Podman además aplica el relabel privado requerido en hosts con SELinux.
+
+`podman compose` es un wrapper que delega en un proveedor externo. Los aliases `pod-*` usan siempre el Compose independiente de cada motor y funcionan con un proveedor que respete perfiles y `depends_on.condition: service_completed_successfully` (por ejemplo, `podman-compose` 1.5+ o Docker Compose v2). El orquestador raíz añade `include` con un `env_file` distinto por proyecto; `podman-compose` 1.5 no acepta ese formato, por lo que el flujo raíz bajo Podman requiere Docker Compose v2 como proveedor. Podman lo selecciona automáticamente si está disponible, o puede fijarse con `PODMAN_COMPOSE_PROVIDER` apuntando al ejecutable correspondiente.
+
+En macOS y Windows, iniciar primero la VM con `podman machine start`. Docker y Podman mantienen almacenes de contenedores y volúmenes separados: un volumen del mismo nombre en ambos runtimes **no contiene los mismos datos**. Elegir un runtime para cada base existente y no cambiar esperando reutilizar sus datos.
 
 ---
 
@@ -74,13 +85,16 @@ test -e postgresql18/.env || cp postgresql18/.env.example postgresql18/.env
 # 3. Configurar las credenciales antes del primer arranque
 nano postgresql18/.env
 
-# 4. Usar el Compose independiente de ese motor
+# 4a. Docker: usar el Compose independiente de ese motor
 docker compose -f postgresql18/compose.yaml --env-file postgresql18/.env --profile postgresql18 up -d
+
+# 4b. Podman: mismo proyecto con el runtime Podman
+podman compose -f postgresql18/compose.yaml --env-file postgresql18/.env --profile postgresql18 up -d
 ```
 
-Este flujo y los helpers solo necesitan el `.env` del motor elegido. Desde su carpeta también funciona `docker compose --env-file .env --profile postgresql18 up -d`. Sin perfil, los servicios quedan desactivados.
+Elegir `4a` o `4b`, no ambos. Este flujo y los helpers solo necesitan el `.env` del motor elegido. Desde su carpeta también funcionan `docker compose --env-file .env --profile postgresql18 up -d` y su equivalente con `podman compose`. Sin perfil, los servicios quedan desactivados.
 
-**Flujo raíz:** el `compose.yaml` raíz incluye los siete proyectos y carga sus `.env` antes de seleccionar perfiles. Para usar los comandos raíz, preparar **todos** los `.env` (incluido PostgreSQL 17), aunque se arranque un único motor:
+**Flujo raíz:** el `compose.yaml` raíz incluye los siete proyectos y carga sus `.env` antes de seleccionar perfiles. Esto requiere un proveedor con soporte de `include`. Para usar comandos raíz con Docker o Podman, preparar **todos** los `.env` (incluido PostgreSQL 17), aunque se arranque un único motor:
 
 ```bash
 for service in mssql2022 mssql2025 postgresql17 postgresql18 mysql mariadb mongodb; do
@@ -90,7 +104,7 @@ done
 
 Configurar sus valores antes del primer arranque. No hay contraseñas de respaldo incrustadas en Compose. Las variables exportadas en la shell tienen precedencia sobre los `.env`; evitar exportar nombres compartidos como `POSTGRES_USER`, `MSSQL_SA_PASSWORD` o `BIND_ADDRESS` si se desean valores diferentes por motor. Véase [Compose include](https://docs.docker.com/reference/compose-file/include/).
 
-No alternar el flujo raíz y el independiente para contenedores ya creados: tienen distintos proyectos/redes Compose, pero comparten nombres de contenedor y volúmenes. Mantener el flujo con el que se crearon; cualquier transición debe planificarse sin `down -v`.
+No alternar el flujo raíz y el independiente para contenedores ya creados dentro del mismo runtime: tienen distintos proyectos/redes Compose, pero comparten nombres de contenedor y volúmenes. Mantener el flujo con el que se crearon; cualquier transición debe planificarse sin `down -v`.
 
 ---
 
@@ -144,7 +158,7 @@ Si el contenedor corre en un VPS y necesitás acceso remoto. **Importante**: con
 
 ### Con aliases
 
-El repositorio incluye helpers para **Bash**, **PowerShell** y **Fish**. Cargar el archivo correspondiente a la shell utilizada:
+El repositorio incluye helpers para **Bash**, **PowerShell** y **Fish**. Los nombres existentes usan Docker; cada alias tiene una variante Podman con prefijo `pod-` (`pg18-up` → `pod-pg18-up`). Cargar el archivo correspondiente a la shell utilizada:
 
 #### Bash / Zsh (Linux, macOS, WSL2, Git Bash)
 
@@ -191,6 +205,12 @@ sql25-up --pull always
 # Estado global
 ddbs-ps
 ddbs-help   # cheatsheet completo
+
+# Los equivalentes Podman conservan argumentos y operaciones
+pod-sql25-up
+pod-pg18-up --pull always
+pod-ddbs-ps
+pod-ddbs-help
 ```
 
 > **Nota:** Si clonaste el repo en una ruta diferente a `~/Docker_DBs`, definí
@@ -206,9 +226,9 @@ ddbs-help   # cheatsheet completo
 > set -gx DDBS_HOME /ruta/al/repo/Docker_DBs
 > ```
 
-### Con Docker Compose directo (desde la raíz)
+### Con Compose directo (desde la raíz)
 
-Requiere los siete `.env` preparados como se explica en la instalación. Los perfiles no evitan cargar los archivos incluidos.
+Requiere los siete `.env` preparados como se explica en la instalación. Los perfiles no evitan cargar los archivos incluidos. Los ejemplos usan Docker; para Podman, sustituir `docker compose` por `podman compose` y usar un proveedor compatible con `include`.
 
 ```bash
 # Levantar un servicio
@@ -259,6 +279,10 @@ docker compose --profile '*' ps
 
 # Ver estado con health checks
 docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# Equivalentes Podman
+podman compose --profile '*' ps -a
+podman ps --format "table {{.Names}}\t{{.Status}}"
 ```
 
 ---
@@ -300,17 +324,17 @@ Los auxiliares de permisos usan root. Los entrypoints oficiales pueden comenzar 
 
 ### Named Volumes (portabilidad cross-platform)
 
-Los datos se almacenan en Docker named volumes, lo que permite:
-- Funcionamiento correcto en Docker Desktop (Windows/Mac), Linux nativo y VMs
+Los datos se almacenan en named volumes del runtime elegido, lo que permite:
+- Funcionamiento correcto en Docker Desktop, Podman, Linux nativo y VMs
 - Sin problemas de permisos I/O entre el host y el contenedor
-- Gestión nativa de datos a través de `docker volume`
+- Gestión nativa a través de `docker volume` o `podman volume`
 
 ```
 <servicio>/
-└── config/    ← archivos de configuración (montados :ro como bind mounts)
+└── config/    ← archivos de configuración (montados :ro,Z como bind mounts)
 ```
 
-Los named volumes se crean automáticamente al hacer `docker compose up` y se eliminan con `docker compose down -v`.
+Los named volumes se crean automáticamente al hacer `compose up`. `compose down -v` los elimina en el runtime activo.
 
 ---
 
@@ -357,7 +381,7 @@ Si cambiás el límite de RAM del contenedor, ajustá la configuración interna 
 
 ## Configuración avanzada
 
-Los archivos de configuración de cada motor se encuentran en `<servicio>/config/` y se montan como volúmenes de solo lectura (`:ro`) dentro del contenedor:
+Los archivos de configuración de cada motor se encuentran en `<servicio>/config/` y se montan como volúmenes de solo lectura (`:ro,Z`) dentro del contenedor. `Z` permite el acceso con SELinux bajo Podman y no elimina el modo de solo lectura:
 
 | Motor | Archivo | Parámetros clave |
 |---|---|---|
@@ -377,13 +401,16 @@ Un reinicio puede recargar archivos bind-mounted si el motor los lee al arrancar
 docker compose --profile postgresql18 restart
 docker compose --profile mysql restart
 docker compose --profile mssql2025 restart
+
+# Con Podman, usar los aliases o sustituir el runtime
+pod-pg18-restart
 ```
 
 ---
 
 ## Gestión de datos
 
-Los datos de cada motor se almacenan en Docker named volumes, creados automáticamente por el init container al primer arranque.
+Los datos de cada motor se almacenan en named volumes de Docker o Podman, creados automáticamente por el init container al primer arranque. Los almacenes de ambos runtimes son independientes.
 
 Los volúmenes `*_backup` son solo almacenamiento: **no hay respaldos automáticos**. Crear y comprobar respaldos con las herramientas del motor antes de actualizar. No se cambian los nombres de volúmenes, bases predeterminadas ni puntos de montaje con estas etiquetas.
 
@@ -392,7 +419,7 @@ PostgreSQL 18 conserva el volumen en `/var/lib/postgresql`, con `PGDATA=/var/lib
 ```bash
 # Ver el espacio usado por los datos de un servicio
 docker system df -v | grep postgresql18
-
+podman system df -v | grep postgresql18
 ```
 
 **Borrado:** `down -v` elimina volúmenes nombrados del modelo Compose; no asumir que un perfil limita el borrado a ese motor en el archivo raíz. No usarlo para actualizar imágenes ni cambiar entre flujos. Los respaldos guardados en `*_backup` también pueden eliminarse.
@@ -407,20 +434,22 @@ docker compose --profile postgresql18 pull
 
 # 3. Recrear el contenedor con la nueva imagen
 docker compose --profile postgresql18 up -d
+
+# Con Podman, sustituir `docker` por `podman` en los pasos 2 y 3.
 ```
 
 ---
 
 ## Política de reinicio
 
-Todos los servicios tienen `restart: no` — **no arrancan automáticamente** al iniciar Docker o el host. Así decidís vos qué servicios levantar en cada momento.
+Todos los servicios tienen `restart: "no"` — **no arrancan automáticamente** al iniciar Docker, Podman o el host. Así decidís vos qué servicios levantar en cada momento.
 
 Para cambiar el comportamiento de un servicio, edita su `compose.yaml`:
 
 | Valor | Comportamiento |
 |---|---|
 | `no` | No se reinicia nunca de forma automática (default) |
-| `unless-stopped` | Se reinicia al arrancar Docker/host, excepto si fue detenido manualmente |
+| `unless-stopped` | Se reinicia al arrancar el runtime/host, excepto si fue detenido manualmente |
 | `always` | Se reinicia siempre, incluso si fue detenido manualmente |
 | `on-failure` | Solo se reinicia si el proceso termina con error |
 
@@ -432,7 +461,7 @@ SQL Server 2022 con `Latin1_General_100_CI_AS_SC` (distinto al default) realiza 
 
 ### SQL Server y permisos de directorio
 
-SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que prepara los Docker named volumes con `chown 10001:0` antes de que arranque el motor. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
+SQL Server 2022 y 2025 corren por defecto como el usuario `mssql` (UID `10001`). Este repo usa un **init container** (`mssql2025_init` / `mssql2022_init`) que prepara los named volumes con `chown 10001:0` antes de que arranque el motor. Por eso el proveedor Compose de Podman debe respetar `service_completed_successfully`. SQL Server arranca directamente como `mssql` sin necesidad de `user: "0"`.
 
 ---
 
@@ -483,7 +512,7 @@ Docker_DBs/
         └── mongod.conf
 ```
 
-> **Nota**: Los datos, backups y logs se almacenan en Docker named volumes (no en el repositorio). Usá `docker volume ls` para verlos.
+> **Nota**: Los datos, backups y logs se almacenan en named volumes (no en el repositorio). Usá `docker volume ls` o `podman volume ls` según el runtime.
 
 ## Validación sin iniciar bases de datos
 
@@ -494,4 +523,4 @@ python3 tests/test_setup.py
 git diff --check
 ```
 
-Las pruebas usan Docker simulado para los helpers y ejecutan `docker compose config` sobre copias temporales con valores ficticios. No leen los `.env` reales ni arrancan servicios. Comprueban perfiles, aislamiento entre configuraciones, rutas con espacios, argumentos y conservación de identidades persistentes frente a `HEAD`. La prueba PowerShell se omite si falta `pwsh`. Estas verificaciones **no demuestran** que los motores arranquen, acepten conexiones o sean compatibles con los datos existentes.
+Las pruebas simulan Docker y Podman para los helpers y ejecutan `compose config` y `podman compose --dry-run ... up` sobre copias temporales con valores ficticios. No leen los `.env` reales ni arrancan servicios. Comprueban ambos grupos de aliases, perfiles, aislamiento, rutas con espacios, argumentos, relabel SELinux y conservación de identidades persistentes frente a `HEAD`. La validación real de Podman se omite si falta `podman`; PowerShell se omite si falta `pwsh`. Revisar los tests omitidos antes de afirmar compatibilidad completa. Estas verificaciones **no demuestran** que los motores arranquen, acepten conexiones o sean compatibles con los datos existentes.
