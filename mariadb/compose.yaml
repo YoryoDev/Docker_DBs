@@ -24,6 +24,11 @@
 #   Si usás modo "NAT", necesitás port forwarding del host a la VM.
 # =============================================================
 
+# podman-compose: evita pods sin infra, que pueden fallar al limpiar
+# la red rootless (pasta) durante stop/down.
+x-podman:
+  in_pod: false
+
 services:
 
   mariadb_init:

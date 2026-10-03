@@ -68,6 +68,8 @@ Los mismos `compose.yaml` funcionan con ambos runtimes. Los mounts de configurac
 
 `podman compose` es un wrapper que delega en un proveedor externo. Los aliases `pod-*` usan siempre el Compose independiente de cada motor y funcionan con un proveedor que respete perfiles y `depends_on.condition: service_completed_successfully` (por ejemplo, `podman-compose` 1.5+ o Docker Compose v2). El orquestador raíz añade `include` con un `env_file` distinto por proyecto; `podman-compose` 1.5 no acepta ese formato, por lo que el flujo raíz bajo Podman requiere Docker Compose v2 como proveedor. Podman lo selecciona automáticamente si está disponible, o puede fijarse con `PODMAN_COMPOSE_PROVIDER` apuntando al ejecutable correspondiente.
 
+Los proyectos independientes declaran `x-podman.in_pod: false`. `podman-compose` crea así contenedores independientes en la red Compose, en lugar de pods sin infra que pueden producir `rootless netns: kill network process: permission denied` al limpiar `pasta`. Docker Compose ignora esta extensión. Si el proyecto fue creado antes de incorporar esta opción, ejecutar una vez `pod-<motor>-down` y `pod-<motor>-up` para recrear sus contenedores; no agregar `-v`, porque los volúmenes contienen los datos persistentes.
+
 En macOS y Windows, iniciar primero la VM con `podman machine start`. Docker y Podman mantienen almacenes de contenedores y volúmenes separados: un volumen del mismo nombre en ambos runtimes **no contiene los mismos datos**. Elegir un runtime para cada base existente y no cambiar esperando reutilizar sus datos.
 
 ---
@@ -267,6 +269,8 @@ docker compose \
 | `pull` | Descarga la nueva imagen sin afectar el contenedor activo. |
 | `logs -f` | Muestra los logs en tiempo real. |
 | `restart` | Reinicia el contenedor existente; no aplica cambios de imagen, variables ni definición Compose. |
+
+SQL Server 2022 y 2025 disponen de hasta 60 segundos para cerrar limpiamente antes de que el runtime envíe `SIGKILL`. Este período se guarda al crear el contenedor; después de actualizar la definición hay que recrearlo con `down` seguido de `up` para aplicarlo.
 
 ### Estado de los contenedores
 

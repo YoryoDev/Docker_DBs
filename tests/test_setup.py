@@ -208,6 +208,16 @@ class SetupTests(unittest.TestCase):
             self.assertTrue(mounts, folder)
             self.assertTrue(all(line.endswith(":ro,Z") for line in mounts), mounts)
 
+    def test_podman_compose_avoids_infra_less_pods(self):
+        for folder in PROJECTS.values():
+            text = (ROOT / folder / "compose.yaml").read_text()
+            self.assertRegex(text, r"(?m)^x-podman:\n  in_pod: false$", folder)
+
+    def test_sql_server_has_shutdown_grace_period(self):
+        for folder in ("mssql2022", "mssql2025"):
+            text = (ROOT / folder / "compose.yaml").read_text()
+            self.assertIn("    stop_grace_period: 60s\n", text, folder)
+
     def test_persisted_identity_unchanged(self):
         for folder in PROJECTS.values():
             relative = f"{folder}/compose.yaml"
