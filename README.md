@@ -92,13 +92,13 @@ test -e postgresql18/.env || cp postgresql18/.env.example postgresql18/.env
 nano postgresql18/.env
 
 # 4a. Docker: usar el Compose independiente de ese motor
-docker compose -f postgresql18/compose.yaml --env-file postgresql18/.env --profile postgresql18 up -d
+docker compose -f postgresql18/compose.yaml --env-file postgresql18/.env up -d --pull always
 
 # 4b. Podman: mismo proyecto con el runtime Podman
-podman compose -f postgresql18/compose.yaml --env-file postgresql18/.env --profile postgresql18 up -d
+podman compose -f postgresql18/compose.yaml --env-file postgresql18/.env up -d --pull always
 ```
 
-Elegir `4a` o `4b`, no ambos. Este flujo y los helpers solo necesitan el `.env` del motor elegido. Desde su carpeta también funcionan `docker compose --env-file .env --profile postgresql18 up -d` y su equivalente con `podman compose`. Sin perfil, los servicios quedan desactivados.
+Elegir `4a` o `4b`, no ambos. Este flujo y los helpers solo necesitan el `.env` del motor elegido. Cada `.env.example` incluye `COMPOSE_PROFILES` con el perfil del motor, por lo que el Compose independiente ya selecciona los servicios sin `--profile`. Desde su carpeta también funciona `docker compose up -d --pull always`; con Podman, usar `podman compose up -d`. Sin `COMPOSE_PROFILES`, los servicios quedan desactivados.
 
 **Flujo raíz:** el `compose.yaml` raíz incluye los siete proyectos y carga sus `.env` antes de seleccionar perfiles. Esto requiere un proveedor con soporte de `include`. Para usar comandos raíz con Docker o Podman, preparar **todos** los `.env` (incluido PostgreSQL 17), aunque se arranque un único motor:
 
@@ -234,34 +234,35 @@ pod-ddbs-help
 > set -gx DDBS_HOME /ruta/al/repo/Docker_DBs
 > ```
 
-### Con Compose directo (desde la raíz)
+### Con Compose directo desde la raíz
 
-Requiere los siete `.env` preparados como se explica en la instalación. Los perfiles no evitan cargar los archivos incluidos. Los ejemplos usan Docker; para Podman, sustituir `docker compose` por `podman compose` y usar un proveedor compatible con `include`.
+Requiere los siete .env preparados como se explica en la instalación. `COMPOSE_PROFILES` dentro de los .env incluidos sirve para los Compose independientes; para el archivo raíz, definir los perfiles en la shell. Los ejemplos usan Docker; para Podman, sustituir `docker compose` por `podman compose` y usar un proveedor compatible con `include`.
 
-```bash
+``bash
 # Levantar un servicio
-docker compose --profile postgresql18 up -d
-docker compose --profile postgresql17 up -d
-docker compose --profile mysql up -d
-docker compose --profile mariadb up -d
-docker compose --profile mongodb up -d
-docker compose --profile mssql2025 up -d
-docker compose --profile mssql2022 up -d
+COMPOSE_PROFILES=postgresql18 docker compose up -d --pull always
+COMPOSE_PROFILES=postgresql17 docker compose up -d --pull always
+COMPOSE_PROFILES=mysql docker compose up -d --pull always
+COMPOSE_PROFILES=mariadb docker compose up -d --pull always
+COMPOSE_PROFILES=mongodb docker compose up -d --pull always
+COMPOSE_PROFILES=mssql2025 docker compose up -d --pull always
+COMPOSE_PROFILES=mssql2022 docker compose up -d --pull always
 
 # Levantar varios servicios a la vez
-docker compose --profile postgresql18 --profile mysql up -d
+COMPOSE_PROFILES=postgresql18,mysql docker compose up -d --pull always
 
 # Levantar todos los servicios (⚠ consume muchos recursos)
-docker compose \
-  --profile postgresql18 \
-  --profile postgresql17 \
-  --profile mysql \
-  --profile mariadb \
-  --profile mongodb \
-  --profile mssql2025 \
-  --profile mssql2022 \
-  up -d
-```
+COMPOSE_PROFILES=postgresql18,postgresql17,mysql,mariadb,mongodb,mssql2025,mssql2022 docker compose up -d --pull always
+``
+
+En PowerShell, establecer la variable antes de ejecutar Compose:
+
+``powershell
+$env:COMPOSE_PROFILES = 'postgresql18'
+docker compose up -d --pull always
+``
+
+Podman usa los mismos valores de `COMPOSE_PROFILES`; sustituir `docker compose` por `podman compose`.
 
 ### Operaciones de contenedor
 
@@ -284,16 +285,16 @@ Las imágenes recientes de SQL Server ejecutan `launch_sqlservr.sh`, que inicia 
 
 ```bash
 # Ver todos los contenedores del proyecto (activos e inactivos)
-docker compose --profile '*' ps -a
+docker compose ps -a
 
 # Ver solo los activos
-docker compose --profile '*' ps
+docker compose ps
 
 # Ver estado con health checks
 docker ps --format "table {{.Names}}\t{{.Status}}"
 
 # Equivalentes Podman
-podman compose --profile '*' ps -a
+podman compose ps -a
 podman ps --format "table {{.Names}}\t{{.Status}}"
 ```
 
@@ -410,9 +411,9 @@ Un reinicio puede recargar archivos bind-mounted si el motor los lee al arrancar
 
 ```bash
 # Después de editar el archivo de config correspondiente
-docker compose --profile postgresql18 restart
-docker compose --profile mysql restart
-docker compose --profile mssql2025 restart
+docker compose restart
+docker compose restart
+docker compose restart
 
 # Con Podman, usar los aliases o sustituir el runtime
 pod-pg18-restart
@@ -442,10 +443,10 @@ podman system df -v | grep postgresql18
 # 1. Crear y verificar un respaldo; revisar las notas de mantenimiento del motor
 
 # 2. Descargar la nueva imagen
-docker compose --profile postgresql18 pull
+docker compose pull
 
 # 3. Recrear el contenedor con la nueva imagen
-docker compose --profile postgresql18 up -d
+COMPOSE_PROFILES=postgresql18 docker compose up -d --pull always
 
 # Con Podman, sustituir `docker` por `podman` en los pasos 2 y 3.
 ```
