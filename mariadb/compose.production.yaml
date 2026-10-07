@@ -1,0 +1,6 @@
+services:
+  mariadb:
+    restart: unless-stopped
+    volumes:
+      - ./certs:/etc/mysql/certs:ro,Z
+    command: ["mariadbd", "--ssl-ca=/etc/mysql/certs/ca.pem", "--ssl-cert=/etc/mysql/certs/server-cert.pem", "--ssl-key=/etc/mysql/certs/server-key.pem", "--require-secure-transport=ON"]
