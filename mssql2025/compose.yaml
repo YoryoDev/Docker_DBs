@@ -32,7 +32,7 @@ x-podman:
 services:
 
   mssql2025_init:
-    image: docker.io/library/busybox:1
+    image: docker.io/library/busybox:1.37.0
     user: "0"
     profiles:
       - mssql2025
@@ -54,7 +54,12 @@ services:
     hostname: sqlserver25
     entrypoint: ["/bin/bash", "/usr/local/bin/launch_sqlservr.sh"]
     command: ["/opt/mssql/bin/sqlservr"]
-    restart: "no"
+    restart: ${RESTART_POLICY:-no}
+    logging:
+      driver: json-file
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: ${LOG_MAX_FILE:-3}
     stop_grace_period: 60s
     depends_on:
       mssql2025_init:

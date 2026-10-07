@@ -1,0 +1,6 @@
+services:
+  mssql2025:
+    restart: unless-stopped
+    volumes:
+      - ./certs:/etc/ssl/mssql:ro,Z
+      - ./config/mssql.production.conf:/var/opt/mssql/mssql.conf:ro,Z
