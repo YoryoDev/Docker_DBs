@@ -1,0 +1,6 @@
+services:
+  mongodb:
+    restart: unless-stopped
+    volumes:
+      - ./certs:/etc/ssl/mongodb:ro,Z
+    command: ["mongod", "--config", "/etc/mongod.conf", "--tlsMode", "requireTLS", "--tlsCertificateKeyFile", "/etc/ssl/mongodb/server.pem", "--tlsCAFile", "/etc/ssl/mongodb/ca.pem"]
