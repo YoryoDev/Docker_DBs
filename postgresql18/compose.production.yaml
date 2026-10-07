@@ -1,0 +1,6 @@
+services:
+  postgresql:
+    restart: unless-stopped
+    volumes:
+      - ./certs:/etc/postgresql/certs:ro,Z
+    command: ["sh", "-c", "sed \"s/__POSTGRES_ALLOWED_CIDR__/$${POSTGRES_ALLOWED_CIDR}/\" /etc/postgresql/pg_hba.conf > /tmp/pg_hba.conf && exec postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/tmp/pg_hba.conf -c ssl=on -c ssl_ca_file=/etc/postgresql/certs/ca.pem -c ssl_cert_file=/etc/postgresql/certs/server-cert.pem -c ssl_key_file=/etc/postgresql/certs/server-key.pem"]
