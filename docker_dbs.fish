@@ -194,9 +194,9 @@ alias sql22-status  'docker inspect --format "{{.Name}}: {{.State.Status}}" sqls
 # ══════════════════════════════════════════════════════════════════════════════
 alias sql25-up      '_ddbs_project mssql2025 mssql2025 up -d'
 alias sql25-down    '_ddbs_project mssql2025 mssql2025 down'
-alias sql25-stop    'docker stop --timeoutout 60 sqlserver25'
+alias sql25-stop    'docker stop --timeout 60 sqlserver25'
 alias sql25-start   'docker start sqlserver25'
-alias sql25-restart 'docker restart --timeoutout 60 sqlserver25'
+alias sql25-restart 'docker restart --timeout 60 sqlserver25'
 alias sql25-logs    'docker logs -f sqlserver25'
 alias sql25-shell   'docker exec -it sqlserver25 bash'
 function sql25-client

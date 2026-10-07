@@ -1,4 +1,6 @@
 .env
+__pycache__/
+*.py[cod]
 
 # Certificados TLS (nunca deben llegar al repositorio)
 *.pem
@@ -12,5 +14,4 @@
 **/backup/
 **/jobs/
 
-.github/
-.atl/
+.github/.atl/
