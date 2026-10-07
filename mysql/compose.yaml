@@ -32,7 +32,7 @@ x-podman:
 services:
 
   mysql_init:
-    image: docker.io/library/busybox:1
+    image: docker.io/library/busybox:1.37.0
     user: "0"
     profiles:
       - mysql
@@ -51,7 +51,12 @@ services:
     image: docker.io/library/mysql:8.4
     container_name: mysql8
     hostname: mysql8
-    restart: "no"
+    restart: ${RESTART_POLICY:-no}
+    logging:
+      driver: json-file
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: ${LOG_MAX_FILE:-3}
     depends_on:
       mysql_init:
         condition: service_completed_successfully
