@@ -62,7 +62,7 @@ services:
         condition: service_completed_successfully
     profiles:
       - postgresql17
-    command: ["sh", "-c", "sed \"s/__POSTGRES_ALLOWED_CIDR__/$${POSTGRES_ALLOWED_CIDR}/\" /etc/postgresql/pg_hba.conf > /tmp/pg_hba.conf && exec postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/tmp/pg_hba.conf"]
+    command: ["sh", "-c", "sed \"s|__POSTGRES_ALLOWED_CIDR__|$${POSTGRES_ALLOWED_CIDR}|\" /etc/postgresql/pg_hba.conf > /tmp/pg_hba.conf && exec /usr/local/bin/docker-entrypoint.sh postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/tmp/pg_hba.conf"]
     ports:
       - "${BIND_ADDRESS}:5433:5432"
     volumes:
