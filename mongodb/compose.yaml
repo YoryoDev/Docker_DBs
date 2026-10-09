@@ -63,7 +63,7 @@ services:
     profiles:
       - mongodb
     ports:
-      - "${BIND_ADDRESS}:27017:27017"
+      - "${BIND_ADDRESS:-127.0.0.1}:27017:27017"
     volumes:
       - mongodb_data:/data/db
       - mongodb_backup:/data/backup

@@ -63,7 +63,7 @@ services:
     profiles:
       - mariadb
     ports:
-      - "${BIND_ADDRESS}:3307:3306"
+      - "${BIND_ADDRESS:-127.0.0.1}:3307:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - mariadb_backup:/var/lib/mysql-backup

@@ -67,7 +67,7 @@ services:
     profiles:
       - mssql2025
     ports:
-      - "${BIND_ADDRESS}:1433:1433"
+      - "${BIND_ADDRESS:-127.0.0.1}:1433:1433"
     volumes:
       - mssql2025_data:/var/opt/mssql/data
       - mssql2025_backup:/var/opt/mssql/backup

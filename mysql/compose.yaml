@@ -63,7 +63,7 @@ services:
     profiles:
       - mysql
     ports:
-      - "${BIND_ADDRESS}:3306:3306"
+      - "${BIND_ADDRESS:-127.0.0.1}:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_backup:/var/lib/mysql-backup

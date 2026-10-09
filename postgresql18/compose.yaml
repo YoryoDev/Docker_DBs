@@ -64,7 +64,7 @@ services:
       - postgresql18
     command: ["sh", "-c", "sed \"s|__POSTGRES_ALLOWED_CIDR__|$${POSTGRES_ALLOWED_CIDR}|\" /etc/postgresql/pg_hba.conf > /tmp/pg_hba.conf && exec /usr/local/bin/docker-entrypoint.sh postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/tmp/pg_hba.conf"]
     ports:
-      - "${BIND_ADDRESS}:5432:5432"
+      - "${BIND_ADDRESS:-127.0.0.1}:5432:5432"
     volumes:
       - postgresql18_data:/var/lib/postgresql
       - postgresql18_backup:/var/lib/postgresql/backup
