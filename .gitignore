@@ -15,3 +15,6 @@ __pycache__/
 **/jobs/
 
 .github/.atl/
+
+# Versión local de Python (cada desarrollador usa su gestor)
+.python-version

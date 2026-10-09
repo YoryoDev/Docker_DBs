@@ -537,3 +537,18 @@ git diff --check
 ```
 
 Las pruebas simulan Docker y Podman para los helpers y ejecutan `compose config` y `podman compose --dry-run ... up` sobre copias temporales con valores ficticios. No leen los `.env` reales ni arrancan servicios. Comprueban ambos grupos de aliases, perfiles, aislamiento, rutas con espacios, argumentos, relabel SELinux y conservación de identidades persistentes frente a `HEAD`. La validación real de Podman se omite si falta `podman`; PowerShell se omite si falta `pwsh`. Revisar los tests omitidos antes de afirmar compatibilidad completa. Estas verificaciones **no demuestran** que los motores arranquen, acepten conexiones o sean compatibles con los datos existentes.
+
+### Ejecutar las pruebas con Python
+
+`tests/test_setup.py` usa solo la biblioteca estándar: no hay dependencias ni entorno virtual que crear. Requiere **Python 3.10 o superior** (el CI usa 3.14). Ejecutá el comando desde la raíz del repositorio con cualquiera de estas opciones:
+
+| Cómo tenés Python | Comando |
+| --- | --- |
+| Nativo en Linux, macOS o WSL | `python3 tests/test_setup.py` |
+| Nativo en Windows (instalador de python.org) | `py tests/test_setup.py` |
+| [uv](https://docs.astral.sh/uv/) | `uv run --no-project python tests/test_setup.py` |
+| pyenv, mise u otro gestor | Activá una versión 3.10+ y usá `python3 tests/test_setup.py` |
+
+Para fijar una versión localmente con uv: `uv python pin 3.14`. Esto crea `.python-version`, que está en `.gitignore` y no se sube al repositorio.
+
+En Windows, los tests de `bash` se omiten si `bash` resuelve al stub de WSL sin distribución instalada. Para ejecutarlos, usá WSL con una distribución o Git Bash. Un test omitido no cuenta como verificado.
