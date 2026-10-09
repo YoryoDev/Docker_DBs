@@ -11,6 +11,10 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+WINDOWS_ENV = (
+    "SYSTEMROOT", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
+    "PROGRAMFILES", "COMSPEC", "PATHEXT", "TEMP", "TMP",
+) if os.name == "nt" else ()
 PROJECTS = {
     "mdb": "mariadb", "mongo": "mongodb", "sql22": "mssql2022",
     "sql25": "mssql2025", "mysql": "mysql",
@@ -20,20 +24,25 @@ PROJECTS = {
 
 class SetupTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="ddbs-test-")
+        self.temp = tempfile.TemporaryDirectory(prefix="ddbs-test-", ignore_cleanup_errors=True)
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / "repo with spaces"
         self.root.mkdir()
-        self.env = {key: os.environ[key] for key in ("PATH", "HOME")}
+        self.env = {key: os.environ[key] for key in WINDOWS_ENV + ("PATH", "HOME")
+                    if key in os.environ}
         self.env["DDBS_HOME"] = str(self.root)
 
     def run_command(self, args):
         return subprocess.run(args, cwd=self.root, env=self.env,
-                              text=True, capture_output=True, timeout=30)
+                              text=True, encoding="utf-8", errors="replace",
+                              capture_output=True, timeout=30)
 
     def check_shell(self, shell, filename):
         if not shutil.which(shell):
             self.skipTest(f"{shell} unavailable")
+        probe = subprocess.run([shell, "-c", "exit 0"], capture_output=True)
+        if probe.returncode:
+            self.skipTest(f"{shell} not runnable (for example the WSL stub without a distro)")
         source = f'source "{ROOT / filename}"; '
         command = ([shell, "--noprofile", "--norc", "-c"] if shell == "bash"
                    else [shell, "--no-config", "-c"])
@@ -110,7 +119,7 @@ class SetupTests(unittest.TestCase):
                     "--env-file", str(path / ".env"), "--profile", folder,
                     "up", "-d", "--timeout", "7",
                 ])
-                self.assertEqual(json.loads(result.stdout), expected)
+                self.assertEqual([str(arg) for arg in json.loads(result.stdout)], expected)
 
     def test_podman_alias_inventory(self):
         expected = {"pod-ddbs-ps", "pod-ddbs-images", "pod-ddbs-help"}
@@ -131,7 +140,7 @@ class SetupTests(unittest.TestCase):
             "DockerDBs.ps1": r"^(?:Set-Alias|function) (pod-[\w-]+)",
         }
         for filename, pattern in patterns.items():
-            names = set(re.findall(pattern, (ROOT / filename).read_text(), re.M))
+            names = set(re.findall(pattern, (ROOT / filename).read_text(encoding="utf-8"), re.M))
             self.assertEqual(names, expected, filename)
 
     def compose_fixture(self):
@@ -140,19 +149,19 @@ class SetupTests(unittest.TestCase):
         for folder in PROJECTS.values():
             target = self.root / folder
             target.mkdir()
-            text = (ROOT / folder / "compose.yaml").read_text()
-            (target / "compose.yaml").write_text(text)
+            text = (ROOT / folder / "compose.yaml").read_text(encoding="utf-8")
+            (target / "compose.yaml").write_text(text, encoding="utf-8")
             shutil.copytree(ROOT / folder / "config", target / "config")
             names = set(re.findall(r"(?<!\$)\$\{([A-Z_]+)", text))
             values = {name: f"dummy_{folder}" for name in names}
             values["BIND_ADDRESS"] = "127.0.0.1"
-            (target / ".env").write_text("".join(f"{key}={value}\n" for key, value in values.items()))
+            (target / ".env").write_text("".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8")
 
     def test_compose_root_and_standalone(self):
         if not shutil.which("docker"):
             self.skipTest("docker unavailable")
         self.compose_fixture()
-        dummy_files = {folder: (self.root / folder / ".env").read_text()
+        dummy_files = {folder: (self.root / folder / ".env").read_text(encoding="utf-8")
                        for folder in PROJECTS.values()}
         for profile in [*PROJECTS.values(), "*"]:
             result = self.run_command(["docker", "compose", "--profile", profile, "config", "--quiet"])
@@ -181,7 +190,7 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         for folder in PROJECTS.values():
             path = self.root / folder
-            (path / ".env").write_text(dummy_files[folder])
+            (path / ".env").write_text(dummy_files[folder], encoding="utf-8")
             result = self.run_command([
                 "docker", "compose", "-f", str(path / "compose.yaml"),
                 "--env-file", str(path / ".env"), "--profile", folder, "config", "--quiet",
@@ -220,31 +229,31 @@ class SetupTests(unittest.TestCase):
 
     def test_selinux_relabel_on_config_bind_mounts(self):
         for folder in PROJECTS.values():
-            text = (ROOT / folder / "compose.yaml").read_text()
+            text = (ROOT / folder / "compose.yaml").read_text(encoding="utf-8")
             mounts = [line.strip() for line in text.splitlines() if "./config/" in line]
             self.assertTrue(mounts, folder)
             self.assertTrue(all(line.endswith(":ro,Z") for line in mounts), mounts)
 
     def test_podman_compose_avoids_infra_less_pods(self):
         for folder in PROJECTS.values():
-            text = (ROOT / folder / "compose.yaml").read_text()
+            text = (ROOT / folder / "compose.yaml").read_text(encoding="utf-8")
             self.assertRegex(text, r"(?m)^x-podman:\n  in_pod: false$", folder)
 
     def test_docker_hub_images_are_fully_qualified(self):
         for folder in PROJECTS.values():
-            text = (ROOT / folder / "compose.yaml").read_text()
+            text = (ROOT / folder / "compose.yaml").read_text(encoding="utf-8")
             for image in re.findall(r"^\s+image:\s+(\S+)$", text, re.M):
                 if not image.startswith("mcr.microsoft.com/"):
                     self.assertTrue(image.startswith("docker.io/library/"), (folder, image))
 
     def test_sql_server_has_shutdown_grace_period(self):
         for folder in ("mssql2022", "mssql2025"):
-            text = (ROOT / folder / "compose.yaml").read_text()
+            text = (ROOT / folder / "compose.yaml").read_text(encoding="utf-8")
             self.assertIn("    stop_grace_period: 60s\n", text, folder)
 
     def test_sql_server_forwards_shutdown_signals(self):
         for folder in ("mssql2022", "mssql2025"):
-            text = (ROOT / folder / "compose.yaml").read_text()
+            text = (ROOT / folder / "compose.yaml").read_text(encoding="utf-8")
             self.assertIn(
                 '    entrypoint: ["/bin/bash", "/usr/local/bin/launch_sqlservr.sh"]',
                 text,
@@ -256,33 +265,33 @@ class SetupTests(unittest.TestCase):
                 text,
                 folder,
             )
-            wrapper = (ROOT / folder / "config" / "launch_sqlservr.sh").read_text()
+            wrapper = (ROOT / folder / "config" / "launch_sqlservr.sh").read_text(encoding="utf-8")
             self.assertIn("trap 'forward_signal TERM' TERM", wrapper, folder)
             self.assertIn('kill "-$signal" "$sqlservr_pid"', wrapper, folder)
 
     def test_sql_server_helpers_use_shutdown_grace_period(self):
         expectations = {
             ".bash_aliases": (
-                "docker stop --time 60 sqlserver25",
-                "docker restart --time 60 sqlserver25",
-                "_pddbs_podman stop --time 60 sqlserver25",
-                "_pddbs_podman restart --time 60 sqlserver25",
+                "docker stop --timeout 60 sqlserver25",
+                "docker restart --timeout 60 sqlserver25",
+                "_pddbs_podman stop --timeout 60 sqlserver25",
+                "_pddbs_podman restart --timeout 60 sqlserver25",
             ),
             "docker_dbs.fish": (
-                "docker stop --time 60 sqlserver25",
-                "docker restart --time 60 sqlserver25",
-                "_pddbs_podman stop --time 60 sqlserver25",
-                "_pddbs_podman restart --time 60 sqlserver25",
+                "docker stop --timeout 60 sqlserver25",
+                "docker restart --timeout 60 sqlserver25",
+                "_pddbs_podman stop --timeout 60 sqlserver25",
+                "_pddbs_podman restart --timeout 60 sqlserver25",
             ),
             "DockerDBs.ps1": (
-                "docker stop --time 60 sqlserver25",
-                "docker restart --time 60 sqlserver25",
-                "Invoke-DDBSPodman stop --time 60 sqlserver25",
-                "Invoke-DDBSPodman restart --time 60 sqlserver25",
+                "docker stop --timeout 60 sqlserver25",
+                "docker restart --timeout 60 sqlserver25",
+                "Invoke-DDBSPodman stop --timeout 60 sqlserver25",
+                "Invoke-DDBSPodman restart --timeout 60 sqlserver25",
             ),
         }
         for filename, commands in expectations.items():
-            text = (ROOT / filename).read_text()
+            text = (ROOT / filename).read_text(encoding="utf-8")
             for command in commands:
                 self.assertIn(command, text, filename)
 
@@ -291,7 +300,7 @@ class SetupTests(unittest.TestCase):
             relative = f"{folder}/compose.yaml"
             before = subprocess.run(["git", "show", f"HEAD:{relative}"], cwd=ROOT,
                                     text=True, capture_output=True, check=True).stdout
-            after = (ROOT / relative).read_text()
+            after = (ROOT / relative).read_text(encoding="utf-8")
             # Named volume declarations, persistent mounts and container names.
             pattern = r"^.*(?:name:|\w+_(?:data|backup|log|jobs):/).*$"
             self.assertEqual(re.findall(pattern, before, re.M), re.findall(pattern, after, re.M))
