@@ -18,3 +18,5 @@ __pycache__/
 
 # Versión local de Python (cada desarrollador usa su gestor)
 .python-version
+
+Dev_Docker.code-workspace
